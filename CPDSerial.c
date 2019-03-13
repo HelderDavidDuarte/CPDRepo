@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <math.h>
 
 #define RND0_1 ((double) random() / ((long long)1<<31))
 #define G 6.67408e-11
@@ -21,6 +22,16 @@ typedef struct particle
 
 }PARTICLE;
 
+typedef struct matrix
+{
+	double mass;
+	double cmx;
+	double cmy;
+	long xi;
+	long yj;
+
+}MATRIX;
+
 PARTICLE par[sizeof(long)];
 
 void init_particles(long seed, long ncside, long n_part, long particle_t)
@@ -36,20 +47,11 @@ void init_particles(long seed, long ncside, long n_part, long particle_t)
     }
 }
 
-void particle_pos(){
+void particle_pos(long ncside, long n_part){
 	for(long i=0; i < n_part; i++){
 		par[i].xi=floor(par[i].x*ncside);
 		par[i].yj=floor(par[i].y*ncside);
 	}
-}
-
-
-
-double* forca (double mass, double accelx, double accely){
-	double *force = (double*) malloc(sizeof(double)*2);
-	*force = mass*accelx;
-	*(force+1) = mass*accely;
-	return force;
 }
 
 double* velocidade (double prevspeedx, double prevspeedy, double accelx, double accely, int tstep){
@@ -66,30 +68,65 @@ double* movement (double xpos, double ypos, double accelx, double accely, double
 	return newpos;
 }
 
-double* centerofmass (double totalmass){
-	double* centerofmass = (double*) malloc(sizeof(double)*2);
-		double* M;
-		for(long i=0; i<ncside; i++){
-			for(long j=0; j<ncside; j++){
-				for(long k=0; k<n_part; k++){
-					if(par[k].xi==i && par[k].yj==j) M[k]+=par[k].m;
+void centerofmass (long ncside, long n_part){
+	double M[ncside][ncside];
+	double x,y;
+	MATRIX m;
+	for(long i=0; i<ncside; i++){
+		for(long j=0; j<ncside; j++){
+			for(long k=0; k<n_part; k++){
+				if(par[k].xi==i && par[k].yj==j) M[i][j]+=par[k].m;
+			}
+			x=0, y=0;
+			for(long k=0;k<n_part;k++){
+				if(par[k].xi==i && par[k].yj==j){
+					x+=(par[k].m*par[k].x)/M[i][j]; //centro de massa em x, para uma dada celula
+					y+=(par[k].m*par[k].y)/M[i][j]; //centro de massa em y, para uma dada celula
 				}
 			}
-		} //ALTERAR AQUI
-	for(long i=0;i<n_part:i++){
-		*centerofmass=(par[i].m*par[i].x)/totalmass;
-		*(centerofmass+1)=(par[i].m*par[i].y)/totalmass;
+			for(long k=0;k<n_part;k++){
+				if(par[k].xi==i && par[k].yj==j){
+					m.xi=par[k].xi;
+					m.yj=par[k].yj;
+					m.cmx=x; //centro de massa em x, para uma dada celula
+					m.cmy=y; //centro de massa em y, para uma dada celula
+					m.mass=M[i][j];
+					printf("%f\n", m.cmx);
+					printf("%f\n", m.cmy);
+				}
+			}
+		}
 	}
-	return centerofmass;
 }
 
-void main(){
+double* forca (long k){
+	double *force = (double*) malloc(sizeof(double)*2);
+	MATRIX n;
+	for(long i=0; i<ncside; i++){
+		for(long j=0; j<ncside; j++){
+			*force = G*n.mass*particle[k].m/((n.cmx-particle[k].x)*(n.cmx-particle[k].x));
+			*(force+1) = G*n.mass*particle[k].m/((n.cmy-particle[k].y)*(n.cmy-particle[k].y));
+		}
+	}	
+	return force;
+}
 
-	int seed = scanf("%d", &seed);
-	int ncside = scanf("%d", &ncside);
-	int n_part = scanf("%d", &n_part);
-	int tstep = scanf("%d", &tstep);
+double* accel (double mass, double accelx, double accely){
+	double *force = (double*) malloc(sizeof(double)*2);
+	*force = mass*accelx;
+	*(force+1) = mass*accely;
+	return force;
+}
+
+void main(int argc, char** argv){
+	long seed = atoi(argv[1]);
+	long ncside = atoi(argv[2]);
+	long n_part = atoi(argv[3]);
+	long tstep = atoi(argv[4]);
+
 	init_particles(seed, ncside, n_part, tstep);
+	particle_pos(ncside, n_part);
+	centerofmass(ncside, n_part);
 	printf("Finished!\n");
 
 }
