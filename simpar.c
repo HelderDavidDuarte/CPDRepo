@@ -75,6 +75,7 @@ double accel (long i, long j, long k, int c){//utilizar na func avgforce
 double avgaccel(long i, long j, long k, int c){//utilizar na func accel
 	double avgaccel;
 	avgaccel = (accel(i,j,k,c)+accel(i+1,j,k,c)+accel(i-1,j,k,c)+accel(i,j+1,k,c)+accel(i,j-1,k,c)+accel(i+1,j+1,k,c)+accel(i-1,j-1,k,c),accel(i+1,j-1,k,c)+accel(i-1,j+1,k,c))/8;
+	return avgaccel;
 }
 
 void velocidade (long k, long tstep){//utilizar na func movement
