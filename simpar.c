@@ -30,6 +30,8 @@ typedef struct matrix
 
 }MATRIX;
 
+/*PARTICLE *par;
+MATRIX **mtr;*/
 PARTICLE par[sizeof(long)];
 MATRIX mtr[sizeof(long)][sizeof(long)];
 
@@ -74,7 +76,7 @@ double accel (long i, long j, long k, int c){//utilizar na func avgforce
 
 double avgaccel(long i, long j, long k, int c){//utilizar na func accel
 	double avgaccel;
-	avgaccel = (accel(i,j,k,c)+accel(i+1,j,k,c)+accel(i-1,j,k,c)+accel(i,j+1,k,c)+accel(i,j-1,k,c)+accel(i+1,j+1,k,c)+accel(i-1,j-1,k,c),accel(i+1,j-1,k,c)+accel(i-1,j+1,k,c))/8;
+	avgaccel = (accel(i,j,k,c)+accel(i+1,j,k,c)+accel(i-1,j,k,c)+accel(i,j+1,k,c)+accel(i,j-1,k,c)+accel(i+1,j+1,k,c)+accel(i-1,j-1,k,c),accel(i+1,j-1,k,c)+accel(i-1,j+1,k,c))/9;
 	return avgaccel;
 }
 
@@ -103,7 +105,7 @@ void globalcenterofmass (long n_part){
 		xcm+=(par[k].m*par[k].x)/masssum;
 		ycm+=(par[k].m*par[k].y)/masssum;
 	}
-	printf("%f %f\n", xcm, ycm);
+	printf("%.2f %.2f\n", xcm, ycm);
 }
 
 void loop(long ncside, long n_part, long particle_t){
@@ -111,7 +113,7 @@ void loop(long ncside, long n_part, long particle_t){
 		updater(ncside,n_part);
 		centerofmass(ncside, n_part);
 	}
-	printf("%f %f\n", par[0].x, par[0].y);
+	printf("%.2f %.2f\n", par[0].x, par[0].y);
 }
 
 void main(int argc, char** argv){
@@ -119,6 +121,13 @@ void main(int argc, char** argv){
 	const long ncside = atoi(argv[2]);
 	const long n_part = atoi(argv[3]);
 	const long particle_t = atoi(argv[4]);
+
+	/*par = (PARTICLE*)malloc(sizeof(PARTICLE)*n_part);
+	mtr = (MATRIX**)malloc(sizeof(MATRIX*)*ncside);
+	for (int i=0; i<ncside; ++i)
+	{
+		mtr[i]=(MATRIX*)malloc(sizeof(MATRIX)*ncside);
+	}*/
 
 	init_particles(seed, ncside, n_part, particle_t);
 	centerofmass(ncside, n_part);
