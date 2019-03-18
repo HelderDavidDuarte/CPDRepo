@@ -65,20 +65,10 @@ void centerofmass (long ncside, long n_part){
 	}
 }
 
-void globalcenterofmass (long n_part){
-	double masssum, xcm, ycm;
-	for(long k=0; k<n_part; k++) masssum += par[k].m;
-	for(long k=0; k<n_part; k++){
-		xcm+=(par[k].m*par[k].x)/masssum;
-		ycm+=(par[k].m*par[k].y)/masssum;
-	}
-	printf("%f %f\n", xcm, ycm);
-}
-
 double accel (long i, long j, long k, int c){//utilizar na func avgforce
-	double accel;
-	if(!c) accel = G*mtr[i][j].mass/pow((mtr[i][j].cmx-par[k].x),2);
-	else accel = G*mtr[i][j].mass/pow((mtr[i][j].cmy-par[k].y),2);
+	double accel, aux=G*mtr[i][j].mass;
+	if(!c) accel = aux/pow((mtr[i][j].cmx-par[k].x),2);
+	else accel = aux/pow((mtr[i][j].cmy-par[k].y),2);
 	return accel;
 }
 
@@ -93,8 +83,8 @@ void velocidade (long k, long tstep){//utilizar na func movement
 }
 
 void movement (long k, long tstep){
-	par[k].x+= par[k].vx*tstep + avgaccel(par[k].xi, par[k].yj,k,0)*tstep;
-	par[k].y+= par[k].vy*tstep + avgaccel(par[k].xi, par[k].yj,k,1)*tstep;
+	par[k].x+= par[k].vx*tstep + (avgaccel(par[k].xi, par[k].yj,k,0)*tstep*tstep)/2;
+	par[k].y+= par[k].vy*tstep + (avgaccel(par[k].xi, par[k].yj,k,1)*tstep*tstep)/2;
 }
 
 void updater(long ncside, long n_part){
@@ -105,14 +95,22 @@ void updater(long ncside, long n_part){
 	}
 }
 
+void globalcenterofmass (long n_part){
+	double masssum, xcm, ycm;
+	for(long k=0; k<n_part; k++) masssum += par[k].m;
+	for(long k=0; k<n_part; k++){
+		xcm+=(par[k].m*par[k].x)/masssum;
+		ycm+=(par[k].m*par[k].y)/masssum;
+	}
+	printf("%f %f\n", xcm, ycm);
+}
+
 void loop(long ncside, long n_part, long particle_t){
-	centerofmass(ncside, n_part);
 	for(long k=0; k<particle_t; k++){
 		updater(ncside,n_part);
 		centerofmass(ncside, n_part);
 	}
 	printf("%f %f\n", par[0].x, par[0].y);
-	globalcenterofmass(n_part);
 }
 
 void main(int argc, char** argv){
@@ -122,8 +120,9 @@ void main(int argc, char** argv){
 	const long particle_t = atoi(argv[4]);
 
 	init_particles(seed, ncside, n_part, particle_t);
+	centerofmass(ncside, n_part);
 	loop(ncside, n_part, particle_t);
-	printf("Finished!\n");
+	globalcenterofmass(n_part);
 
 }
 
