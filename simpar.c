@@ -30,10 +30,8 @@ typedef struct matrix
 
 }MATRIX;
 
-/*PARTICLE *par;
-MATRIX **mtr;*/
-PARTICLE par[sizeof(long)];
-MATRIX mtr[sizeof(long)][sizeof(long)];
+PARTICLE *par;
+MATRIX **mtr;
 
 void init_particles(long seed, long ncside, long n_part, long particle_t)
 {
@@ -49,10 +47,18 @@ void init_particles(long seed, long ncside, long n_part, long particle_t)
     }
 }
 
+void check(long k){
+	if(par[k].x>=1) par[k].x-=1;
+	if(par[k].x<=0) par[k].x+=1;
+	if(par[k].y>=1) par[k].y-=1;
+	if(par[k].y<=0) par[k].y+=1;
+}
+
 void centerofmass (long ncside, long n_part){
 	for(long i=0; i<ncside; i++){
 		for(long j=0; j<ncside; j++){
 			for(long k=0; k<n_part; k++){
+				check(k);
 				par[k].xi=floor(par[k].x*ncside);
 				par[k].yj=floor(par[k].y*ncside);
 				if(par[k].xi==i && par[k].yj==j) mtr[i][j].mass+=par[k].m;
@@ -69,33 +75,51 @@ void centerofmass (long ncside, long n_part){
 
 double accel (long i, long j, long k, int c){//utilizar na func avgforce
 	double accel, aux=G*mtr[i][j].mass;
+	check(k);
 	if(!c) accel = aux/pow((mtr[i][j].cmx-par[k].x),2);
 	else accel = aux/pow((mtr[i][j].cmy-par[k].y),2);
 	return accel;
 }
 
-double avgaccel(long i, long j, long k, int c){//utilizar na func accel
-	double avgaccel;
-	avgaccel = (accel(i,j,k,c)+accel(i+1,j,k,c)+accel(i-1,j,k,c)+accel(i,j+1,k,c)+accel(i,j-1,k,c)+accel(i+1,j+1,k,c)+accel(i-1,j-1,k,c),accel(i+1,j-1,k,c)+accel(i-1,j+1,k,c))/9;
+double avgaccel(long i, long j, long k, long ncside, int c){//utilizar na func accel
+	double avgaccel=0;
+	long p,q,r,s;
+	p=i+1;
+	q=i-1;
+	r=j+1;
+	s=j-1;
+	if(p>=ncside) p=0;
+	if(q<0) q=ncside-1;
+	if(r>=ncside) r=0;
+	if(s<0) s=ncside-1;
+	avgaccel = (accel(i,j,k,c)+accel(p,j,k,c)+accel(q,j,k,c)+accel(i,r,k,c)+accel(i,s,k,c)+accel(p,r,k,c)+accel(q,s,k,c),accel(p,s,k,c)+accel(q,r,k,c))/9;
 	return avgaccel;
 }
 
-void velocidade (long k, long tstep){//utilizar na func movement
-	par[k].vx+=avgaccel(par[k].xi, par[k].yj, k, 0)*tstep;
-	par[k].vy+=avgaccel(par[k].xi, par[k].yj, k, 1)*tstep;
+void velocidade (long k, long tstep, long ncside){//utilizar na func movement
+	par[k].vx+=avgaccel(par[k].xi, par[k].yj, k, ncside, 0)*tstep;
+	par[k].vy+=avgaccel(par[k].xi, par[k].yj, k, ncside, 1)*tstep;
 }
 
-void movement (long k, long tstep){
-	par[k].x+= par[k].vx*tstep + (avgaccel(par[k].xi, par[k].yj,k,0)*tstep*tstep)/2;
-	par[k].y+= par[k].vy*tstep + (avgaccel(par[k].xi, par[k].yj,k,1)*tstep*tstep)/2;
+void movement (long k, long tstep, long ncside){
+	par[k].x+= par[k].vx*tstep + (avgaccel(par[k].xi, par[k].yj,k,ncside,0)*tstep*tstep)/2;
+	par[k].y+= par[k].vy*tstep + (avgaccel(par[k].xi, par[k].yj,k,ncside,1)*tstep*tstep)/2;
 }
 
 void updater(long ncside, long n_part){
 	long tstep=1;
 	for(long k=0;k<n_part;k++){
-		velocidade(k, tstep);
-		movement(k, tstep);
+		velocidade(k, tstep, ncside);
+		movement(k, tstep, ncside);
 	}
+}
+
+void loop(long ncside, long n_part, long particle_t){
+	for(long k=0; k<particle_t; k++){
+		updater(ncside, n_part);
+		centerofmass(ncside, n_part);
+	}
+	printf("%.2f %.2f\n", par[0].x, par[0].y);
 }
 
 void globalcenterofmass (long n_part){
@@ -108,27 +132,18 @@ void globalcenterofmass (long n_part){
 	printf("%.2f %.2f\n", xcm, ycm);
 }
 
-void loop(long ncside, long n_part, long particle_t){
-	for(long k=0; k<particle_t; k++){
-		updater(ncside,n_part);
-		centerofmass(ncside, n_part);
-	}
-	printf("%.2f %.2f\n", par[0].x, par[0].y);
-}
-
 void main(int argc, char** argv){
 	const long seed = atoi(argv[1]);
 	const long ncside = atoi(argv[2]);
 	const long n_part = atoi(argv[3]);
 	const long particle_t = atoi(argv[4]);
 
-	/*par = (PARTICLE*)malloc(sizeof(PARTICLE)*n_part);
-	mtr = (MATRIX**)malloc(sizeof(MATRIX*)*ncside);
-	for (int i=0; i<ncside; ++i)
-	{
-		mtr[i]=(MATRIX*)malloc(sizeof(MATRIX)*ncside);
-	}*/
-
+	par = malloc(sizeof(PARTICLE)*n_part);
+	mtr = (MATRIX**)calloc(ncside,sizeof(MATRIX*));
+	for (int i=0; i<ncside; i++){
+		mtr[i]=(MATRIX*)calloc(ncside,sizeof(MATRIX));
+	}
+	
 	init_particles(seed, ncside, n_part, particle_t);
 	centerofmass(ncside, n_part);
 	loop(ncside, n_part, particle_t);
