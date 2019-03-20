@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <math.h>
 #include <time.h> 
-#include<omp.h>
 
 #define RND0_1 ((double) random() / ((long long)1<<31))
 #define G 6.67408e-11
@@ -36,7 +35,8 @@ typedef struct matrix
 
 particle_t *par;
 MATRIX *mtr;
-double masssum=0;
+double masssum=0, xcm=0, ycm=0;
+int w=0;
 
 void init_particles(long seed, long ncside, long long n_part, particle_t *par)
 {
@@ -65,21 +65,23 @@ double avgaccel(long i, long j, long p, long q, long r, long s, long k, int c){
 	return (accel(i,j,k,c)+accel(p,j,k,c)+accel(q,j,k,c)+accel(i,r,k,c)+accel(i,s,k,c)+accel(p,r,k,c)+accel(q,s,k,c),accel(p,s,k,c)+accel(q,r,k,c))/9;
 }
 
-void wrapcalc(long ncside, long k){
+void wrapcalc(long ncside, long n_part){
 	long tstep=1,i,j,p,q,r,s;
 	double ax, ay;
-	i=par[k].xi,j=par[k].yj;
-	p=i+1,q=i-1,r=j+1,s=j-1;
-	if(p>=ncside) p=0;
-	if(q<0) q=ncside-1;
-	if(r>=ncside) r=0;
-	if(s<0) s=ncside-1;
-	ax=avgaccel(i,j,p,q,r,s,k,0);
-	ay=avgaccel(i,j,p,q,r,s,k,1);
-	par[k].vx+= ax*tstep;
-	par[k].x+= par[k].vx*tstep + (ax*tstep*tstep)/2;
-	par[k].vy+= ay*tstep;
-	par[k].y+= par[k].vy*tstep + (ay*tstep*tstep)/2;
+	for(long k=0; k<n_part; k++){
+		i=par[k].xi,j=par[k].yj;
+		p=i+1,q=i-1,r=j+1,s=j-1;
+		if(p>=ncside) p=0;
+		if(q<0) q=ncside-1;
+		if(r>=ncside) r=0;
+		if(s<0) s=ncside-1;
+		ax=avgaccel(i,j,p,q,r,s,k,0);
+		ay=avgaccel(i,j,p,q,r,s,k,1);
+		par[k].vx+= ax*tstep;
+		par[k].x+= par[k].vx*tstep + (ax*tstep*tstep)/2;
+		par[k].vy+= ay*tstep;
+		par[k].y+= par[k].vy*tstep + (ay*tstep*tstep)/2;
+	}
 }
 
 void centerofmass (long ncside, long n_part){
@@ -101,20 +103,19 @@ void centerofmass (long ncside, long n_part){
 				else if(mtr[i].cmy<=1) mtr[i].cmy+=1;
 			}
 		}
+		if(w){
+			xcm+=(par[k].m*par[k].x)/masssum;
+			ycm+=(par[k].m*par[k].y)/masssum;
+		}
 	}
 }
 
 void run(long ncside, long n_part, long particle_iter){
-	double xcm=0, ycm=0;
+	centerofmass(ncside, n_part);
 	for(long l=0; l<particle_iter; l++){
-		for(long k=0; k<n_part; k++){
-			wrapcalc(ncside,k);
-		}
+		if(l==particle_iter-1) w=1;
+		wrapcalc(ncside,n_part);
 		centerofmass(ncside, n_part);
-	}
-	for(long k=0; k<n_part; k++){
-		xcm+=(par[k].m*par[k].x)/masssum;
-		ycm+=(par[k].m*par[k].y)/masssum;
 	}
 	printf("%.2f %.2f\n", par[0].x, par[0].y);
 	printf("%.2f %.2f\n", xcm, ycm);
@@ -133,7 +134,6 @@ void main(int argc, char** argv){
 	mtr = (MATRIX*)calloc(ncside*ncside,sizeof(MATRIX));
 	
 	init_particles(seed, ncside, n_part, par);
-	centerofmass(ncside, n_part);
 	run(ncside, n_part, particle_iter);
 
 	end = clock();
