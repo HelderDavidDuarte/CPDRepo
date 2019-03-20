@@ -75,33 +75,29 @@ void wrapcalc(long ncside, long n_part){
 		if(q<0) q=ncside-1;
 		if(r>=ncside) r=0;
 		if(s<0) s=ncside-1;
-
 		ax=avgaccel(i,j,p,q,r,s,k,0);
+		ay=avgaccel(i,j,p,q,r,s,k,1);
 		par[k].vx+= ax*tstep;
 		par[k].x+= par[k].vx*tstep + (ax*tstep*tstep)/2;
-		if(par[k].x>=1) par[k].x-=1;
-		else if(par[k].x<0) par[k].x+=1;
-		
-		ay=avgaccel(i,j,p,q,r,s,k,1);
 		par[k].vy+= ay*tstep;
 		par[k].y+= par[k].vy*tstep + (ay*tstep*tstep)/2;
-		if(par[k].y>=1) par[k].y-=1;
-		else if(par[k].y<0) par[k].y+=1;
 	}
 }
 
 void centerofmass (long ncside, long n_part){
 	for(long k=0; k<n_part; k++){
+		if(par[k].x>=1) par[k].x-=1;
+		else if(par[k].x<0) par[k].x+=1;
+		if(par[k].y>=1) par[k].y-=1;
+		else if(par[k].y<0) par[k].y+=1;
 		par[k].xi=floor(par[k].x*ncside);
 		par[k].yj=floor(par[k].y*ncside);
 		for(long i=0; i<ncside*ncside; i++){
 			if(par[k].xi==mtr[i].ix && par[k].yj==mtr[i].jy){
 				mtr[i].mass+=par[k].m;
-				
 				mtr[i].cmx+=(par[k].m*par[k].x)/mtr[i].mass; //centro de massa em x, para uma dada celula
 				if(mtr[i].cmx>=1) mtr[i].cmx-=1;
 				else if(mtr[i].cmx<=1) mtr[i].cmx+=1;
-				
 				mtr[i].cmy+=(par[k].m*par[k].y)/mtr[i].mass; //centro de massa em y, para uma dada celula
 				if(mtr[i].cmy>=1) mtr[i].cmy-=1;
 				else if(mtr[i].cmy<=1) mtr[i].cmy+=1;
