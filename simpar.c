@@ -33,6 +33,7 @@ typedef struct matrix
 
 PARTICLE *par;
 MATRIX **mtr;
+double masssum=0;
 
 void init_particles(long seed, long ncside, long n_part, long particle_t)
 {
@@ -45,6 +46,7 @@ void init_particles(long seed, long ncside, long n_part, long particle_t)
         par[i].vx = RND0_1 / ncside / 10.0;
         par[i].vy = RND0_1 / ncside / 10.0;
         par[i].m = RND0_1 * ncside / (G * 1e6 * n_part);
+        masssum+=par[i].m;
     }
 }
 
@@ -114,25 +116,21 @@ void movement (long k, long tstep, long ncside){
 	par[k].y+= par[k].vy*tstep + (avgaccel(k,ncside,1)*tstep*tstep)/2;
 }
 
-void updater(long ncside, long n_part){
+void run(long ncside, long n_part, long particle_t){
 	long tstep=1;
-	for(long k=0;k<n_part;k++){
-		velocidade(k, tstep, ncside);
-		movement(k, tstep, ncside);
-	}
-}
-
-void loop(long ncside, long n_part, long particle_t){
-	for(long k=0; k<particle_t; k++){
-		updater(ncside, n_part);
+	centerofmass(ncside, n_part);
+	for(long l=0; l<particle_t; l++){
+		for(long k=0;k<n_part;k++){
+			velocidade(k, tstep, ncside);
+			movement(k, tstep, ncside);
+		}
 		centerofmass(ncside, n_part);
 	}
 	printf("%.2f %.2f\n", par[0].x, par[0].y);
 }
 
 void globalcenterofmass (long n_part){
-	double masssum, xcm, ycm;
-	for(long k=0; k<n_part; k++) masssum += par[k].m;
+	double xcm=0, ycm=0;
 	for(long k=0; k<n_part; k++){
 		xcm+=(par[k].m*par[k].x)/masssum;
 		ycm+=(par[k].m*par[k].y)/masssum;
@@ -149,19 +147,18 @@ void main(int argc, char** argv){
     double cpu_time_used;
     start = clock();
 
-	par = malloc(sizeof(PARTICLE)*n_part);
+	par = calloc(n_part,sizeof(PARTICLE));
 	mtr = (MATRIX**)calloc(ncside,sizeof(MATRIX*));
 	for (int l=0; l<ncside; l++){
 		mtr[l]=(MATRIX*)calloc(ncside,sizeof(MATRIX));
 	}
 	
 	init_particles(seed, ncside, n_part, particle_t);
-	centerofmass(ncside, n_part);
-	loop(ncside, n_part, particle_t);
+	run(ncside, n_part, particle_t);
 	globalcenterofmass(n_part);
 
 	end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    //printf("%f\n", cpu_time_used);
+    printf("%f\n", cpu_time_used);
 }
 
