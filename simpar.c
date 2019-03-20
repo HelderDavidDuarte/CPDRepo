@@ -66,8 +66,7 @@ double avgaccel(long i, long j, long p, long q, long r, long s, long k, int c){
 }
 
 void wrapcalc(long ncside, long k){
-	long tstep=1,i,j,p,q,r,s;
-	i=par[k].xi,j=par[k].yj;
+	long tstep=1,i=par[k].xi,j=par[k].yj,p,q,r,s;
 	p=i+1,q=i-1,r=j+1,s=j-1;
 	if(p>=ncside) p=0;
 	if(q<0) q=ncside-1;
@@ -79,31 +78,25 @@ void wrapcalc(long ncside, long k){
 	par[k].y+= par[k].vy*tstep + (avgaccel(i,j,p,q,r,s,k,1)*tstep*tstep)/2;
 }
 
-void basecenterofmass(long ncside, long k){
-	if(par[k].x>=1) par[k].x-=1;
-	if(par[k].x<0)  par[k].x+=1;
-	if(par[k].y>=1) par[k].y-=1;
-	if(par[k].y<0)  par[k].y+=1;
-	par[k].xi=floor(par[k].x*ncside);
-	par[k].yj=floor(par[k].y*ncside);
-	for(long i=0; i<ncside*ncside; i++){
-		if(par[k].xi==mtr[i].ix && par[k].yj==mtr[i].jy) mtr[i].mass+=par[k].m;
-	}
-	for(long i=0; i<ncside*ncside; i++){
-		if(par[k].xi==mtr[i].ix && par[k].yj==mtr[i].jy){
-			mtr[i].cmx+=(par[k].m*par[k].x)/mtr[i].mass; //centro de massa em x, para uma dada celula
-			if(mtr[i].cmx>=1) mtr[i].cmx-=1;
-			if(mtr[i].cmx<=1) mtr[i].cmx+=1;
-			mtr[i].cmy+=(par[k].m*par[k].y)/mtr[i].mass; //centro de massa em y, para uma dada celula
-			if(mtr[i].cmy>=1) mtr[i].cmy-=1;
-			if(mtr[i].cmy<=1) mtr[i].cmy+=1;
-		}
-	}
-}
-
 void centerofmass (long ncside, long n_part){
 	for(long k=0; k<n_part; k++){
-		basecenterofmass(ncside, k);
+		if(par[k].x>=1) par[k].x-=1;
+		if(par[k].x<0)  par[k].x+=1;
+		if(par[k].y>=1) par[k].y-=1;
+		if(par[k].y<0)  par[k].y+=1;
+		par[k].xi=floor(par[k].x*ncside);
+		par[k].yj=floor(par[k].y*ncside);
+		for(long i=0; i<ncside*ncside; i++){
+			if(par[k].xi==mtr[i].ix && par[k].yj==mtr[i].jy){
+				mtr[i].mass+=par[k].m;
+				mtr[i].cmx+=(par[k].m*par[k].x)/mtr[i].mass; //centro de massa em x, para uma dada celula
+				if(mtr[i].cmx>=1) mtr[i].cmx-=1;
+				if(mtr[i].cmx<=1) mtr[i].cmx+=1;
+				mtr[i].cmy+=(par[k].m*par[k].y)/mtr[i].mass; //centro de massa em y, para uma dada celula
+				if(mtr[i].cmy>=1) mtr[i].cmy-=1;
+				if(mtr[i].cmy<=1) mtr[i].cmy+=1;
+			}
+		}
 	}
 }
 
@@ -132,8 +125,8 @@ void main(int argc, char** argv){
     double cpu_time_used;
     start = clock();
 
-	par = calloc(n_part,sizeof(particle_t));
-	mtr = (MATRIX*)calloc(ncside*ncside,sizeof(MATRIX));
+	par = (particle_t*)malloc(n_part*sizeof(particle_t));
+	mtr = (MATRIX*)malloc(ncside*ncside*sizeof(MATRIX));
 	
 	init_particles(seed, ncside, n_part, par);
 	centerofmass(ncside, n_part);
