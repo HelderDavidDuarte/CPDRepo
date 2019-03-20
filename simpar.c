@@ -5,6 +5,7 @@
 #include <string.h>
 #include <errno.h>
 #include <math.h>
+#include <time.h> 
 
 #define RND0_1 ((double) random() / ((long long)1<<31))
 #define G 6.67408e-11
@@ -49,24 +50,32 @@ void init_particles(long seed, long ncside, long n_part, long particle_t)
 
 void check(long k){
 	if(par[k].x>=1) par[k].x-=1;
-	if(par[k].x<=0) par[k].x+=1;
+	if(par[k].x<0)  par[k].x+=1;
 	if(par[k].y>=1) par[k].y-=1;
-	if(par[k].y<=0) par[k].y+=1;
+	if(par[k].y<0)  par[k].y+=1;
 }
 
 void centerofmass (long ncside, long n_part){
-	for(long i=0; i<ncside; i++){
-		for(long j=0; j<ncside; j++){
-			for(long k=0; k<n_part; k++){
+	for(long k=0; k<n_part; k++){
+		for(long i=0; i<ncside; i++){
+			for(long j=0; j<ncside; j++){
 				check(k);
 				par[k].xi=floor(par[k].x*ncside);
 				par[k].yj=floor(par[k].y*ncside);
 				if(par[k].xi==i && par[k].yj==j) mtr[i][j].mass+=par[k].m;
 			}
-			for(long k=0;k<n_part;k++){
+		}
+	}
+	for(long k=0;k<n_part;k++){
+		for(long i=0; i<ncside; i++){
+			for(long j=0; j<ncside; j++){
 				if(par[k].xi==i && par[k].yj==j){
 					mtr[i][j].cmx+=(par[k].m*par[k].x)/mtr[i][j].mass; //centro de massa em x, para uma dada celula
+					if(mtr[i][j].cmx>=1) mtr[i][j].cmx-=1;
+					if(mtr[i][j].cmx<=1) mtr[i][j].cmx+=1;
 					mtr[i][j].cmy+=(par[k].m*par[k].y)/mtr[i][j].mass; //centro de massa em y, para uma dada celula
+					if(mtr[i][j].cmy>=1) mtr[i][j].cmy-=1;
+					if(mtr[i][j].cmy<=1) mtr[i][j].cmy+=1;
 				}
 			}
 		}
@@ -74,20 +83,18 @@ void centerofmass (long ncside, long n_part){
 }
 
 double accel (long i, long j, long k, int c){//utilizar na func avgforce
-	double accel, aux=G*mtr[i][j].mass;
+	double accel;
 	check(k);
-	if(!c) accel = aux/pow((mtr[i][j].cmx-par[k].x),2);
-	else accel = aux/pow((mtr[i][j].cmy-par[k].y),2);
+	if(!c) accel = G*mtr[i][j].mass/pow((mtr[i][j].cmx-par[k].x),2);
+	else accel = G*mtr[i][j].mass/pow((mtr[i][j].cmy-par[k].y),2);
 	return accel;
 }
 
-double avgaccel(long i, long j, long k, long ncside, int c){//utilizar na func accel
+double avgaccel(long k, long ncside, int c){//utilizar na func accel
 	double avgaccel=0;
-	long p,q,r,s;
-	p=i+1;
-	q=i-1;
-	r=j+1;
-	s=j-1;
+	long i=par[k].xi;
+	long j=par[k].yj;
+	long p=i+1,q=i-1,r=j+1,s=j-1;
 	if(p>=ncside) p=0;
 	if(q<0) q=ncside-1;
 	if(r>=ncside) r=0;
@@ -97,13 +104,13 @@ double avgaccel(long i, long j, long k, long ncside, int c){//utilizar na func a
 }
 
 void velocidade (long k, long tstep, long ncside){//utilizar na func movement
-	par[k].vx+=avgaccel(par[k].xi, par[k].yj, k, ncside, 0)*tstep;
-	par[k].vy+=avgaccel(par[k].xi, par[k].yj, k, ncside, 1)*tstep;
+	par[k].vx+=avgaccel(k, ncside, 0)*tstep;
+	par[k].vy+=avgaccel(k, ncside, 1)*tstep;
 }
 
 void movement (long k, long tstep, long ncside){
-	par[k].x+= par[k].vx*tstep + (avgaccel(par[k].xi, par[k].yj,k,ncside,0)*tstep*tstep)/2;
-	par[k].y+= par[k].vy*tstep + (avgaccel(par[k].xi, par[k].yj,k,ncside,1)*tstep*tstep)/2;
+	par[k].x+= par[k].vx*tstep + (avgaccel(k,ncside,0)*tstep*tstep)/2;
+	par[k].y+= par[k].vy*tstep + (avgaccel(k,ncside,1)*tstep*tstep)/2;
 }
 
 void updater(long ncside, long n_part){
@@ -137,11 +144,14 @@ void main(int argc, char** argv){
 	const long ncside = atoi(argv[2]);
 	const long n_part = atoi(argv[3]);
 	const long particle_t = atoi(argv[4]);
+	clock_t start, end;
+    double cpu_time_used;
+    start = clock();
 
 	par = malloc(sizeof(PARTICLE)*n_part);
 	mtr = (MATRIX**)calloc(ncside,sizeof(MATRIX*));
-	for (int i=0; i<ncside; i++){
-		mtr[i]=(MATRIX*)calloc(ncside,sizeof(MATRIX));
+	for (int l=0; l<ncside; l++){
+		mtr[l]=(MATRIX*)calloc(ncside,sizeof(MATRIX));
 	}
 	
 	init_particles(seed, ncside, n_part, particle_t);
@@ -149,5 +159,8 @@ void main(int argc, char** argv){
 	loop(ncside, n_part, particle_t);
 	globalcenterofmass(n_part);
 
+	end = clock();
+    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    //printf("%f\n", cpu_time_used);
 }
 
