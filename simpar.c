@@ -53,30 +53,6 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par)
     }
 }
 
-void centerofmass (long ncside, long n_part){
-	for(long k=0; k<n_part; k++){
-		if(par[k].x>=1) par[k].x-=1;
-		if(par[k].x<0)  par[k].x+=1;
-		if(par[k].y>=1) par[k].y-=1;
-		if(par[k].y<0)  par[k].y+=1;
-		par[k].xi=floor(par[k].x*ncside);
-		par[k].yj=floor(par[k].y*ncside);
-		for(long i=0; i<ncside*ncside; i++){
-			if(par[k].xi==mtr[i].ix && par[k].yj==mtr[i].jy) mtr[i].mass+=par[k].m;
-		}
-		for(long i=0; i<ncside*ncside; i++){
-			if(par[k].xi==mtr[i].ix && par[k].yj==mtr[i].jy){
-				mtr[i].cmx+=(par[k].m*par[k].x)/mtr[i].mass; //centro de massa em x, para uma dada celula
-				if(mtr[i].cmx>=1) mtr[i].cmx-=1;
-				if(mtr[i].cmx<=1) mtr[i].cmx+=1;
-				mtr[i].cmy+=(par[k].m*par[k].y)/mtr[i].mass; //centro de massa em y, para uma dada celula
-				if(mtr[i].cmy>=1) mtr[i].cmy-=1;
-				if(mtr[i].cmy<=1) mtr[i].cmy+=1;
-			}
-		}
-	}
-}
-
 double accel (long i, long j, long k, int c){
 	double accel, rx=mtr[i+j].cmx-par[k].x, ry=mtr[i+j].cmy-par[k].y;
 	if(!c) accel = G*mtr[i+j].mass/(rx*rx);
@@ -89,32 +65,61 @@ double avgaccel(long i, long j, long p, long q, long r, long s, long k, int c){
 	return (accel(i,j,k,c)+accel(p,j,k,c)+accel(q,j,k,c)+accel(i,r,k,c)+accel(i,s,k,c)+accel(p,r,k,c)+accel(q,s,k,c),accel(p,s,k,c)+accel(q,r,k,c))/9;
 }
 
-void run(long ncside, long n_part, long particle_iter){
+void wrapcalc(long ncside, long k){
 	long tstep=1,i,j,p,q,r,s;
+	i=par[k].xi,j=par[k].yj;
+	p=i+1,q=i-1,r=j+1,s=j-1;
+	if(p>=ncside) p=0;
+	if(q<0) q=ncside-1;
+	if(r>=ncside) r=0;
+	if(s<0) s=ncside-1;
+	par[k].vx+= avgaccel(i,j,p,q,r,s,k,0)*tstep;
+	par[k].x+= par[k].vx*tstep + ((avgaccel(i,j,p,q,r,s,k,0))*tstep*tstep)/2;
+	par[k].vy+= avgaccel(i,j,p,q,r,s,k,1)*tstep;
+	par[k].y+= par[k].vy*tstep + (avgaccel(i,j,p,q,r,s,k,1)*tstep*tstep)/2;
+}
+
+void basecenterofmass(long ncside, long k){
+	if(par[k].x>=1) par[k].x-=1;
+	if(par[k].x<0)  par[k].x+=1;
+	if(par[k].y>=1) par[k].y-=1;
+	if(par[k].y<0)  par[k].y+=1;
+	par[k].xi=floor(par[k].x*ncside);
+	par[k].yj=floor(par[k].y*ncside);
+	for(long i=0; i<ncside*ncside; i++){
+		if(par[k].xi==mtr[i].ix && par[k].yj==mtr[i].jy) mtr[i].mass+=par[k].m;
+	}
+	for(long i=0; i<ncside*ncside; i++){
+		if(par[k].xi==mtr[i].ix && par[k].yj==mtr[i].jy){
+			mtr[i].cmx+=(par[k].m*par[k].x)/mtr[i].mass; //centro de massa em x, para uma dada celula
+			if(mtr[i].cmx>=1) mtr[i].cmx-=1;
+			if(mtr[i].cmx<=1) mtr[i].cmx+=1;
+			mtr[i].cmy+=(par[k].m*par[k].y)/mtr[i].mass; //centro de massa em y, para uma dada celula
+			if(mtr[i].cmy>=1) mtr[i].cmy-=1;
+			if(mtr[i].cmy<=1) mtr[i].cmy+=1;
+		}
+	}
+}
+
+void centerofmass (long ncside, long n_part){
+	for(long k=0; k<n_part; k++){
+		basecenterofmass(ncside, k);
+	}
+}
+
+void run(long ncside, long n_part, long particle_iter){
+	double xcm=0, ycm=0;
 	for(long l=0; l<particle_iter; l++){
-		for(long k=0;k<n_part;k++){
-			i=par[k].xi,j=par[k].yj;
-			p=i+1,q=i-1,r=j+1,s=j-1;
-			if(p>=ncside) p=0;
-			if(q<0) q=ncside-1;
-			if(r>=ncside) r=0;
-			if(s<0) s=ncside-1;
-			par[k].vx+= avgaccel(i,j,p,q,r,s,k,0)*tstep;
-			par[k].x+= par[k].vx*tstep + ((avgaccel(i,j,p,q,r,s,k,0))*tstep*tstep)/2;
-			par[k].vy+= avgaccel(i,j,p,q,r,s,k,1)*tstep;
-			par[k].y+= par[k].vy*tstep + (avgaccel(i,j,p,q,r,s,k,1)*tstep*tstep)/2;
+		for(long k=0; k<n_part; k++){
+			wrapcalc(ncside,k);
+			if(l==particle_iter-1){
+				xcm+=(par[k].m*par[k].x)/masssum;
+				ycm+=(par[k].m*par[k].y)/masssum;
+			}
 		}
 		centerofmass(ncside, n_part);
 	}
 	printf("%.2f %.2f\n", par[0].x, par[0].y);
-}
-
-void globalcenterofmass (long n_part){
-	double xcm=0, ycm=0;
-	for(long k=0; k<n_part; k++){
-		xcm+=(par[k].m*par[k].x)/masssum;
-		ycm+=(par[k].m*par[k].y)/masssum;
-	}
 	printf("%.2f %.2f\n", xcm, ycm);
 }
 
@@ -133,7 +138,6 @@ void main(int argc, char** argv){
 	init_particles(seed, ncside, n_part, par);
 	centerofmass(ncside, n_part);
 	run(ncside, n_part, particle_iter);
-	globalcenterofmass(n_part);
 
 	end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
