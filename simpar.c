@@ -117,8 +117,6 @@ void run(long ncside, long n_part, long particle_iter){
 		wrapcalc(ncside,n_part);
 		centerofmass(ncside, n_part);
 	}
-	printf("%.2f %.2f\n", par[0].x, par[0].y);
-	printf("%.2f %.2f\n", xcm, ycm);
 }
 
 void main(int argc, char** argv){
@@ -135,6 +133,9 @@ void main(int argc, char** argv){
 	
 	init_particles(seed, ncside, n_part, par);
 	run(ncside, n_part, particle_iter);
+
+	printf("%.2f %.2f\n", par[0].x, par[0].y);
+	printf("%.2f %.2f\n", xcm, ycm);
 
 	end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
