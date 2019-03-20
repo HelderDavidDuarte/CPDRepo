@@ -67,16 +67,19 @@ double avgaccel(long i, long j, long p, long q, long r, long s, long k, int c){
 
 void wrapcalc(long ncside, long k){
 	long tstep=1,i,j,p,q,r,s;
+	double ax, ay;
 	i=par[k].xi,j=par[k].yj;
 	p=i+1,q=i-1,r=j+1,s=j-1;
 	if(p>=ncside) p=0;
 	if(q<0) q=ncside-1;
 	if(r>=ncside) r=0;
 	if(s<0) s=ncside-1;
-	par[k].vx+= avgaccel(i,j,p,q,r,s,k,0)*tstep;
-	par[k].x+= par[k].vx*tstep + ((avgaccel(i,j,p,q,r,s,k,0))*tstep*tstep)/2;
-	par[k].vy+= avgaccel(i,j,p,q,r,s,k,1)*tstep;
-	par[k].y+= par[k].vy*tstep + (avgaccel(i,j,p,q,r,s,k,1)*tstep*tstep)/2;
+	ax=avgaccel(i,j,p,q,r,s,k,0);
+	ay=avgaccel(i,j,p,q,r,s,k,1);
+	par[k].vx+= ax*tstep;
+	par[k].x+= par[k].vx*tstep + (ax*tstep*tstep)/2;
+	par[k].vy+= ay*tstep;
+	par[k].y+= par[k].vy*tstep + (ay*tstep*tstep)/2;
 }
 
 void centerofmass (long ncside, long n_part){
