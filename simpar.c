@@ -83,10 +83,11 @@ void centerofmass (long ncside, long n_part){
 }
 
 double accel (long i, long j, long k, int c){//utilizar na func avgforce
-	double accel;
+	double accel, rx=mtr[i][j].cmx-par[k].x, ry=mtr[i][j].cmy-par[k].y;
 	check(k);
-	if(!c) accel = G*mtr[i][j].mass/pow((mtr[i][j].cmx-par[k].x),2);
-	else accel = G*mtr[i][j].mass/pow((mtr[i][j].cmy-par[k].y),2);
+	if(!c) accel = G*mtr[i][j].mass/pow((rx),2);
+	else accel = G*mtr[i][j].mass/pow((ry),2);
+	if(rx<0.01||ry<0.01) accel=0;
 	return accel;
 }
 
