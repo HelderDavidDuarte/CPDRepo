@@ -79,50 +79,41 @@ void wrapcalc(long ncside, long k){
 	par[k].y+= par[k].vy*tstep + (avgaccel(i,j,p,q,r,s,k,1)*tstep*tstep)/2;
 }
 
-void basecenterofmass(long ncside, long k){
-	if(par[k].x>=1) par[k].x-=1;
-	if(par[k].x<0)  par[k].x+=1;
-	if(par[k].y>=1) par[k].y-=1;
-	if(par[k].y<0)  par[k].y+=1;
-	par[k].xi=floor(par[k].x*ncside);
-	par[k].yj=floor(par[k].y*ncside);
-	for(long i=0; i<ncside*ncside; i++){
-		if(par[k].xi==mtr[i].ix && par[k].yj==mtr[i].jy) mtr[i].mass+=par[k].m;
-	}
-	for(long i=0; i<ncside*ncside; i++){
-		if(par[k].xi==mtr[i].ix && par[k].yj==mtr[i].jy){
-			mtr[i].cmx+=(par[k].m*par[k].x)/mtr[i].mass; //centro de massa em x, para uma dada celula
-			if(mtr[i].cmx>=1) mtr[i].cmx-=1;
-			if(mtr[i].cmx<=1) mtr[i].cmx+=1;
-			mtr[i].cmy+=(par[k].m*par[k].y)/mtr[i].mass; //centro de massa em y, para uma dada celula
-			if(mtr[i].cmy>=1) mtr[i].cmy-=1;
-			if(mtr[i].cmy<=1) mtr[i].cmy+=1;
+void centerofmass (long ncside, long n_part){
+	for(long k=0; k<n_part; k++){
+		if(par[k].x>=1) par[k].x-=1;
+		else if(par[k].x<0) par[k].x+=1;
+		if(par[k].y>=1) par[k].y-=1;
+		else if(par[k].y<0) par[k].y+=1;
+		par[k].xi=floor(par[k].x*ncside);
+		par[k].yj=floor(par[k].y*ncside);
+		for(long i=0; i<ncside*ncside; i++){
+			if(par[k].xi==mtr[i].ix && par[k].yj==mtr[i].jy){
+				mtr[i].mass+=par[k].m;
+				mtr[i].cmx+=(par[k].m*par[k].x)/mtr[i].mass; //centro de massa em x, para uma dada celula
+				if(mtr[i].cmx>=1) mtr[i].cmx-=1;
+				else if(mtr[i].cmx<=1) mtr[i].cmx+=1;
+				mtr[i].cmy+=(par[k].m*par[k].y)/mtr[i].mass; //centro de massa em y, para uma dada celula
+				if(mtr[i].cmy>=1) mtr[i].cmy-=1;
+				else if(mtr[i].cmy<=1) mtr[i].cmy+=1;
+			}
 		}
 	}
 }
 
-void centerofmass (long ncside, long n_part){
-	for(long k=0; k<n_part; k++){
-		basecenterofmass(ncside, k);
-	}
-}
-
 void run(long ncside, long n_part, long particle_iter){
+	double xcm=0, ycm=0;
 	for(long l=0; l<particle_iter; l++){
 		for(long k=0; k<n_part; k++){
 			wrapcalc(ncside,k);
 		}
 		centerofmass(ncside, n_part);
 	}
-	printf("%.2f %.2f\n", par[0].x, par[0].y);
-}
-
-void globalcenterofmass (long n_part){
-	double xcm=0, ycm=0;
 	for(long k=0; k<n_part; k++){
 		xcm+=(par[k].m*par[k].x)/masssum;
 		ycm+=(par[k].m*par[k].y)/masssum;
 	}
+	printf("%.2f %.2f\n", par[0].x, par[0].y);
 	printf("%.2f %.2f\n", xcm, ycm);
 }
 
@@ -141,7 +132,6 @@ void main(int argc, char** argv){
 	init_particles(seed, ncside, n_part, par);
 	centerofmass(ncside, n_part);
 	run(ncside, n_part, particle_iter);
-	globalcenterofmass(n_part);
 
 	end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
