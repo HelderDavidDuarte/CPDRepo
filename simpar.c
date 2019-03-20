@@ -106,23 +106,15 @@ double avgaccel(long k, long ncside, int c){//utilizar na func accel
 	return avgaccel;
 }
 
-void velocidade (long k, long tstep, long ncside){//utilizar na func movement
-	par[k].vx+=avgaccel(k, ncside, 0)*tstep;
-	par[k].vy+=avgaccel(k, ncside, 1)*tstep;
-}
-
-void movement (long k, long tstep, long ncside){
-	par[k].x+= par[k].vx*tstep + (avgaccel(k,ncside,0)*tstep*tstep)/2;
-	par[k].y+= par[k].vy*tstep + (avgaccel(k,ncside,1)*tstep*tstep)/2;
-}
-
 void run(long ncside, long n_part, long particle_t){
 	long tstep=1;
 	centerofmass(ncside, n_part);
 	for(long l=0; l<particle_t; l++){
 		for(long k=0;k<n_part;k++){
-			velocidade(k, tstep, ncside);
-			movement(k, tstep, ncside);
+			par[k].vx+=avgaccel(k, ncside, 0)*tstep;
+			par[k].x+= par[k].vx*tstep + (avgaccel(k,ncside,0)*tstep*tstep)/2;
+			par[k].vy+=avgaccel(k, ncside, 1)*tstep;
+			par[k].y+= par[k].vy*tstep + (avgaccel(k,ncside,1)*tstep*tstep)/2;
 		}
 		centerofmass(ncside, n_part);
 	}
