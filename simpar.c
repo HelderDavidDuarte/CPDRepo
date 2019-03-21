@@ -54,11 +54,10 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par)
 }
 
 double accel (long i, long j, long k, int c){
-	double accel, rx=mtr[i+j].cmx-par[k].x, ry=mtr[i+j].cmy-par[k].y;
-	if(rx<0.01||ry<0.01) {accel=0; return accel;}
-	if(!c) accel = G*mtr[i+j].mass/(rx*rx);
-	else accel = G*mtr[i+j].mass/(ry*ry);	
-	return accel;
+	double rx=mtr[i+j].cmx-par[k].x, ry=mtr[i+j].cmy-par[k].y;
+	if(rx<0.01||ry<0.01) return 0;
+	if(!c) return G*mtr[i+j].mass/(rx*rx);
+	else return G*mtr[i+j].mass/(ry*ry);	
 }
 
 double avgaccel(long i, long j, long p, long q, long r, long s, long k, int c){
