@@ -53,8 +53,7 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par)
     }
 }
 
-double accel (long i, long j, long k, int c){
-	long t=i+j;
+double accel (long t, long k, int c){
 	double rx=mtr[t].cmx-par[k].x, ry=mtr[t].cmy-par[k].y;
 	if(rx<0.01||ry<0.01) return 0;
 	if(!c) return G*mtr[t].mass/(rx*rx);
@@ -62,7 +61,7 @@ double accel (long i, long j, long k, int c){
 }
 
 double avgaccel(long i, long j, long p, long q, long r, long s, long k, int c){
-	return (accel(i,j,k,c)+accel(p,j,k,c)+accel(q,j,k,c)+accel(i,r,k,c)+accel(i,s,k,c)+accel(p,r,k,c)+accel(q,s,k,c),accel(p,s,k,c)+accel(q,r,k,c))/9;
+	return (accel(i+j,k,c)+accel(p+j,k,c)+accel(q+j,k,c)+accel(i+r,k,c)+accel(i+s,k,c)+accel(p+r,k,c)+accel(q+s,k,c),accel(p+s,k,c)+accel(q+r,k,c))/9;
 }
 
 void wrapcalc(long ncside, long n_part){
