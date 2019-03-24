@@ -52,6 +52,15 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par)
     }
 }
 
+void init_matrix(long ncside){
+	for(long i=0;i<ncside;i++){
+		mtr[i].ix=i;
+		for(long j=0;j<ncside;j++){
+			mtr[j].jy=j;
+		}
+	}
+}
+
 double accelx (long t, long k){
 	double rx=mtr[t].cmx-par[k].x;
 	if(rx<0.01) return 0;
@@ -101,7 +110,6 @@ void centerofmass (long ncside, long n_part){
 			mtr[i].cmy+=(par[k].m*par[k].y)/mtr[i].mass; //centro de massa em y, para uma dada celula
 			if(mtr[i].cmy>=1) mtr[i].cmy-=1;
 			else if(mtr[i].cmy<=1) mtr[i].cmy+=1;
-			
 		}
 	}
 }
@@ -153,6 +161,7 @@ void main(int argc, char** argv){
 	mtr = (MATRIX*)calloc(ncside*ncside,sizeof(MATRIX));
 	
 	init_particles(seed, ncside, n_part, par);
+	init_matrix(ncside);
 	run(ncside, n_part, particle_iter);
 
 	end = clock();
