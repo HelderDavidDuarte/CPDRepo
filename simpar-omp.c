@@ -122,10 +122,9 @@ void centerofmassfinal (long ncside, long n_part){
 
 void run(long ncside, long n_part, long particle_iter){
 	centerofmassinit(ncside, n_part);
-	for(long l=0; l<particle_iter-1; l++){
+	for(long l=0; l<particle_iter; l++){
 		wrapcalc(ncside,n_part);
 	}
-	wrapcalc(ncside,n_part);
 	centerofmassfinal(ncside, n_part);
 }
 
