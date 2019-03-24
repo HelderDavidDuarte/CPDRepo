@@ -36,8 +36,7 @@ typedef struct matrix
 
 particle_t *par;
 MATRIX *mtr;
-double masssum=0, xcm=0, ycm=0;
-int w=0;
+double masssum=0;
 
 void init_particles(long seed, long ncside, long long n_part, particle_t *par)
 {
@@ -54,21 +53,30 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par)
     }
 }
 
-double accel (long t, long k, int c){
-	double rx=mtr[t].cmx-par[k].x, ry=mtr[t].cmy-par[k].y;
-	if(rx<0.01||ry<0.01) return 0;
-	if(!c) return G*mtr[t].mass/(rx*rx);
-	else return G*mtr[t].mass/(ry*ry);
+void init_matrix(long ncside){
+	for(long i=0;i<ncside;i++){
+		mtr[i].ix=i;
+		for(long j=0;j<ncside;j++){
+			mtr[j].jy=j;
+		}
+	}
 }
 
-double avgaccel(long i, long j, long p, long q, long r, long s, long k, int c){
-	return (accel(i+j,k,c)+accel(p+j,k,c)+accel(q+j,k,c)+accel(i+r,k,c)+accel(i+s,k,c)+accel(p+r,k,c)+accel(q+s,k,c),accel(p+s,k,c)+accel(q+r,k,c))/9;
+double accelx (long t, long k){
+	double rx=mtr[t].cmx-par[k].x;
+	if(rx<0.01) return 0;
+	return G*mtr[t].mass/(rx*rx);
+}
+
+double accely (long t, long k){
+	double ry=mtr[t].cmy-par[k].y;
+	if(ry<0.01) return 0;
+	return G*mtr[t].mass/(ry*ry);
 }
 
 void wrapcalc(long ncside, long n_part){
 	long tstep=1,i,j,p,q,r,s;
-	double ax, ay;
-	#pragma omp parallel for private(k) nowait
+	double compvx, compvy;
 	for(long k=0; k<n_part; k++){
 		i=par[k].xi,j=par[k].yj;
 		p=i+1,q=i-1,r=j+1,s=j-1;
@@ -76,49 +84,69 @@ void wrapcalc(long ncside, long n_part){
 		if(q<0) q=ncside-1;
 		if(r>=ncside) r=0;
 		if(s<0) s=ncside-1;
-		ax=avgaccel(i,j,p,q,r,s,k,0);
-		par[k].vx+= ax*tstep;
-		par[k].x+= par[k].vx*tstep + (ax*tstep*tstep)/2;
-		ay=avgaccel(i,j,p,q,r,s,k,1);
-		par[k].vy+= ay*tstep;
-		par[k].y+= par[k].vy*tstep + (ay*tstep*tstep)/2;
-	}
-}
-
-void centerofmass (long ncside, long n_part){
-	#pragma omp parallel for private(k) nowait
-	for(long k=0; k<n_part; k++){
+		compvx=((accelx(i+j,k)+accelx(p+j,k)+accelx(q+j,k)+accelx(i+r,k)+accelx(i+s,k)+accelx(p+r,k)+accelx(q+s,k),accelx(p+s,k)+accelx(q+r,k))/9)*tstep;
+		compvy=((accely(i+j,k)+accely(p+j,k)+accely(q+j,k)+accely(i+r,k)+accely(i+s,k)+accely(p+r,k)+accely(q+s,k),accely(p+s,k)+accely(q+r,k))/9)*tstep;
+		par[k].vx+= compvx;
+		par[k].x+= par[k].vx*tstep + (compvx*tstep)/2;
+		par[k].vy+= compvy;
+		par[k].y+= par[k].vy*tstep + (compvy*tstep)/2;
 		if(par[k].x>=1) par[k].x-=1;
 		else if(par[k].x<0) par[k].x+=1;
 		if(par[k].y>=1) par[k].y-=1;
 		else if(par[k].y<0) par[k].y+=1;
+	}
+}
+
+void centerofmass (long ncside, long n_part){
+	for(long k=0; k<n_part; k++){
 		par[k].xi=floor(par[k].x*ncside);
 		par[k].yj=floor(par[k].y*ncside);
-		for(long i=0; i<ncside*ncside; i++){
-			if(par[k].xi==mtr[i].ix && par[k].yj==mtr[i].jy){
-				mtr[i].mass+=par[k].m;
-				mtr[i].cmx+=(par[k].m*par[k].x)/mtr[i].mass; //centro de massa em x, para uma dada celula
-				if(mtr[i].cmx>=1) mtr[i].cmx-=1;
-				else if(mtr[i].cmx<=1) mtr[i].cmx+=1;
-				mtr[i].cmy+=(par[k].m*par[k].y)/mtr[i].mass; //centro de massa em y, para uma dada celula
-				if(mtr[i].cmy>=1) mtr[i].cmy-=1;
-				else if(mtr[i].cmy<=1) mtr[i].cmy+=1;
-			}
-		}
-		if(w){
-			xcm+=(par[k].m*par[k].x)/masssum;
-			ycm+=(par[k].m*par[k].y)/masssum;
+		for(long i=0; i<ncside*ncside && par[k].xi==mtr[i].ix && par[k].yj==mtr[i].jy; i++){
+			mtr[i].mass+=par[k].m;
+				
+			mtr[i].cmx+=(par[k].m*par[k].x)/mtr[i].mass; //centro de massa em x, para uma dada celula
+			if(mtr[i].cmx>=1) mtr[i].cmx-=1;
+			else if(mtr[i].cmx<=1) mtr[i].cmx+=1;
+				
+			mtr[i].cmy+=(par[k].m*par[k].y)/mtr[i].mass; //centro de massa em y, para uma dada celula
+			if(mtr[i].cmy>=1) mtr[i].cmy-=1;
+			else if(mtr[i].cmy<=1) mtr[i].cmy+=1;
 		}
 	}
 }
 
+void centerofmassfinal (long ncside, long n_part){
+	double xcm=0, ycm=0;
+	for(long k=0; k<n_part; k++){
+		par[k].xi=floor(par[k].x*ncside);
+		par[k].yj=floor(par[k].y*ncside);
+		for(long i=0; i<ncside*ncside && par[k].xi==mtr[i].ix && par[k].yj==mtr[i].jy; i++){
+			mtr[i].mass+=par[k].m;
+			
+			mtr[i].cmx+=(par[k].m*par[k].x)/mtr[i].mass; //centro de massa em x, para uma dada celula
+			if(mtr[i].cmx>=1) mtr[i].cmx-=1;
+			else if(mtr[i].cmx<=1) mtr[i].cmx+=1;
+				
+			mtr[i].cmy+=(par[k].m*par[k].y)/mtr[i].mass; //centro de massa em y, para uma dada celula
+			if(mtr[i].cmy>=1) mtr[i].cmy-=1;
+			else if(mtr[i].cmy<=1) mtr[i].cmy+=1;
+			
+		}
+		xcm+=(par[k].m*par[k].x)/masssum;
+		ycm+=(par[k].m*par[k].y)/masssum;
+	}
+	printf("%.2f %.2f\n", par[0].x, par[0].y);
+	printf("%.2f %.2f\n", xcm, ycm);
+}
+
 void run(long ncside, long n_part, long particle_iter){
 	centerofmass(ncside, n_part);
-	for(long l=0; l<particle_iter; l++){
-		if(l==particle_iter-1) w=1;
+	for(long l=0; l<particle_iter-1; l++){
 		wrapcalc(ncside,n_part);
 		centerofmass(ncside, n_part);
 	}
+	wrapcalc(ncside,n_part);
+	centerofmassfinal(ncside, n_part);
 }
 
 void main(int argc, char** argv){
@@ -134,10 +162,8 @@ void main(int argc, char** argv){
 	mtr = (MATRIX*)calloc(ncside*ncside,sizeof(MATRIX));
 	
 	init_particles(seed, ncside, n_part, par);
+	init_matrix(ncside);
 	run(ncside, n_part, particle_iter);
-
-	printf("%.2f %.2f\n", par[0].x, par[0].y);
-	printf("%.2f %.2f\n", xcm, ycm);
 
 	end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
