@@ -63,21 +63,21 @@ void init_matrix(long ncside){
 double accelx (long t, long k){
 	double rx=mtr[t].cmx-par[k].x;
 	if(rx<0.01) return 0;
-	return G*mtr[t].mass/(rx*rx);
+	return G*mtr[t].mass/(rx*rx*9);
 }
 
 double accely (long t, long k){
 	double ry=mtr[t].cmy-par[k].y;
 	if(ry<0.01) return 0;
-	return G*mtr[t].mass/(ry*ry);
+	return G*mtr[t].mass/(ry*ry*9);
 }
 
 void centerofmassinit (long ncside, long n_part){
 	for(long k=0; k<n_part; k++){
-		for(long i=0; i<ncside*ncside && floor(par[k].x*ncside)==mtr[i].ix && floor(par[k].y*ncside)==mtr[i].jy; i++){
-			mtr[i].mass+=par[k].m;
-			mtr[i].cmx+=(par[k].m*par[k].x)/mtr[i].mass; //centro de massa em x, para uma dada celula
-			mtr[i].cmy+=(par[k].m*par[k].y)/mtr[i].mass; //centro de massa em y, para uma dada celula
+		for(long n=0; n<ncside*ncside && floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy; n++){
+			mtr[n].mass+=par[k].m;
+			mtr[n].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
+			mtr[n].cmy+=(par[k].m*par[k].y)/mtr[n].mass; //centro de massa em y, para uma dada celula
 		}
 	}
 }
@@ -92,20 +92,20 @@ void wrapcalc(long ncside, long n_part){
 		if(q<0) q=ncside-1;
 		if(r>=ncside) r=0;
 		if(s<0) s=ncside-1;
-		compvx=((accelx(i+j,k)+accelx(p+j,k)+accelx(q+j,k)+accelx(i+r,k)+accelx(i+s,k)+accelx(p+r,k)+accelx(q+s,k),accelx(p+s,k)+accelx(q+r,k))/9)*tstep;
-		compvy=((accely(i+j,k)+accely(p+j,k)+accely(q+j,k)+accely(i+r,k)+accely(i+s,k)+accely(p+r,k)+accely(q+s,k),accely(p+s,k)+accely(q+r,k))/9)*tstep;
+		compvx=(accelx(i+j,k)+accelx(p+j,k)+accelx(q+j,k)+accelx(i+r,k)+accelx(i+s,k)+accelx(p+r,k)+accelx(q+s,k),accelx(p+s,k)+accelx(q+r,k))*tstep;
+		compvy=(accely(i+j,k)+accely(p+j,k)+accely(q+j,k)+accely(i+r,k)+accely(i+s,k)+accely(p+r,k)+accely(q+s,k),accely(p+s,k)+accely(q+r,k))*tstep;
 		par[k].vx+= compvx;
-		par[k].x+= par[k].vx*tstep + (compvx*tstep)/2;
+		par[k].x+= par[k].vx*tstep + (compvx*tstep)*0.5;
 		par[k].vy+= compvy;
-		par[k].y+= par[k].vy*tstep + (compvy*tstep)/2;
+		par[k].y+= par[k].vy*tstep + (compvy*tstep)*0.5;
 		if(par[k].x>=1) par[k].x-=1;
 		else if(par[k].x<0) par[k].x+=1;
 		if(par[k].y>=1) par[k].y-=1;
 		else if(par[k].y<0) par[k].y+=1;
-		for(long i=0; i<ncside*ncside && floor(par[k].x*ncside)==mtr[i].ix && floor(par[k].y*ncside)==mtr[i].jy; i++){
-			mtr[i].mass+=par[k].m;
-			mtr[i].cmx+=(par[k].m*par[k].x)/mtr[i].mass; //centro de massa em x, para uma dada celula
-			mtr[i].cmy+=(par[k].m*par[k].y)/mtr[i].mass; //centro de massa em y, para uma dada celula
+		for(long n=0; n<ncside*ncside && i==mtr[n].ix && j==mtr[n].jy; n++){
+			mtr[n].mass+=par[k].m;
+			mtr[n].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
+			mtr[n].cmy+=(par[k].m*par[k].y)/mtr[n].mass; //centro de massa em y, para uma dada celula
 		}
 	}
 }
