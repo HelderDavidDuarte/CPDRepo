@@ -5,7 +5,8 @@
 #include <string.h>
 #include <errno.h>
 #include <math.h>
-#include <time.h> 
+#include <time.h>
+#include <omp.h>
 
 #define RND0_1 ((double) random() / ((long long)1<<31))
 #define G 6.67408e-11
@@ -40,7 +41,7 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par){
     srandom(seed);
     #pragma omp parallel for private(i, tid) //ainda nao funciona
     {
-    	tid = omp_get_thread_num();
+    	int tid = omp_get_thread_num();
     	#pragma omp parallel for nowait;
     	{
 	    	for(i=0; i < n_part; i++)
