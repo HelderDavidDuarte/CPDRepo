@@ -38,23 +38,34 @@ double masssum=0;
 
 void init_particles(long seed, long ncside, long long n_part, particle_t *par){
 	long long i;
+	int tid;
     srandom(seed);
-    for(i=0; i < n_part; i++)
+    #pragma omp parallel for private(i, tid) //ainda nao funciona
     {
-        par[i].x = RND0_1;
-        par[i].y = RND0_1;
-        par[i].vx = RND0_1 / ncside / 10.0;
-        par[i].vy = RND0_1 / ncside / 10.0;
-        par[i].m = RND0_1 * ncside / (G * 1e6 * n_part);
-        masssum+=par[i].m;
-    }
+    	tid = omp_get_thread_num();
+    	#pragma omp parallel for nowait;
+    	{
+	    	for(i=0; i < n_part; i++)
+		    {
+		        par[i].x = RND0_1;
+		        par[i].y = RND0_1;
+		        par[i].vx = RND0_1 / ncside / 10.0;
+		        par[i].vy = RND0_1 / ncside / 10.0;
+		        par[i].m = RND0_1 * ncside / (G * 1e6 * n_part);
+		        masssum+=par[i].m;
+		    }
+    	}
+	}
 }
 
 void init_matrix(long ncside){//funcao que inicializa o vetor de estruturas, associando valores i,j para a matriz
-	for(long i=0;i<ncside;i++){
-		mtr[i].ix=i;
-		for(long j=0;j<ncside;j++){
-			mtr[j].jy=j;
+	#pragma omp parallel for
+	{
+		for(long i=0;i<ncside;i++){
+			mtr[i].ix=i;
+			for(long j=0;j<ncside;j++){
+				mtr[j].jy=j;
+			}
 		}
 	}
 }
@@ -72,53 +83,55 @@ double accely (long t, long k){//calculo da aceleracao de uma particula a um dad
 }
 
 void centerofmassinit (long ncside, long n_part){//calcula a primeira iteracao dos centros de massa, necessaria aos calculos seguintes
-	#pragma omp parallel for private(k)
-	for(long k=0; k<n_part; k++){
-		for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy; n++){
-			mtr[n].mass+=par[k].m;
-			mtr[n].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
-			mtr[n].cmy+=(par[k].m*par[k].y)/mtr[n].mass; //centro de massa em y, para uma dada celula
-			break;
+	#pragma omp parallel for
+	{
+		for(long k=0; k<n_part; k++){
+			for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy && n<ncside*ncside; n++){
+				mtr[n].mass+=par[k].m;
+				mtr[n].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
+				mtr[n].cmy+=(par[k].m*par[k].y)/mtr[n].mass; //centro de massa em y, para uma dada celula
+				break;
+			}
 		}
 	}
 }
 
 void wrapcalc(long ncside, long n_part, long particle_iter){
 	long tstep=1,i,j,p,q,r,s;
-	double compvx, compvy;
 	double xcm=0, ycm=0;
+	double compvx, compvy;
 	for(long l=0; l<particle_iter; l++){
-	#pragma omp for
-		for(long k=0; k<n_part; k++){
-			i=par[k].x*ncside,j=par[k].y*ncside;
-			p=i+1,q=i-1,r=j+1,s=j-1;
-			if(p>=ncside) p=0;
-			else if(q<0) q=ncside-1;
-			if(r>=ncside) r=0;
-			else if(s<0) s=ncside-1;
-			//update de velocidade e posicao em x
-			#pragma omp parallel private(compvx, compvy)
-			compvx=(accelx(i+j,k)+accelx(p+j,k)+accelx(q+j,k)+accelx(i+r,k)+accelx(i+s,k)+accelx(p+r,k)+accelx(q+s,k),accelx(p+s,k)+accelx(q+r,k))*tstep;
-			par[k].vx+= compvx;
-			par[k].x+= par[k].vx*tstep + (compvx*tstep)*0.5;
-			if(par[k].x>=1) par[k].x-=1;
-			else if(par[k].x<0) par[k].x+=1;
-			//update de velocidade e posicao em y
-			compvy=(accely(i+j,k)+accely(p+j,k)+accely(q+j,k)+accely(i+r,k)+accely(i+s,k)+accely(p+r,k)+accely(q+s,k),accely(p+s,k)+accely(q+r,k))*tstep;
-			par[k].vy+= compvy;
-			par[k].y+= par[k].vy*tstep + (compvy*tstep)*0.5;
-			if(par[k].y>=1) par[k].y-=1;
-			else if(par[k].y<0) par[k].y+=1;
-			
-			for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy; n++){//update do centro de massa
-				mtr[n].mass+=par[k].m;
-				mtr[n].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
-				mtr[n].cmy+=(par[k].m*par[k].y)/mtr[n].mass; //centro de massa em y, para uma dada celula
-				break;
-			}
-			if(l==particle_iter-1){//na ultima iteracao, calcula o centro de massa de todas as particulas
-				xcm+=(par[k].m*par[k].x)/masssum;
-				ycm+=(par[k].m*par[k].y)/masssum;
+		#pragma omp parallel for
+		{
+			for(long k=0; k<n_part; k++){
+				i=par[k].x*ncside,j=par[k].y*ncside;
+				p=i+1,q=i-1,r=j+1,s=j-1;
+				if(p>=ncside) p=0;
+				else if(q<0) q=ncside-1;
+				if(r>=ncside) r=0;
+				else if(s<0) s=ncside-1;
+				//update de velocidade e posicao em x
+				compvx=(accelx(i+j,k)+accelx(p+j,k)+accelx(q+j,k)+accelx(i+r,k)+accelx(i+s,k)+accelx(p+r,k)+accelx(q+s,k),accelx(p+s,k)+accelx(q+r,k))*tstep;
+				par[k].vx+= compvx;
+				par[k].x+= par[k].vx*tstep + (compvx*tstep)*0.5;
+				if(par[k].x>=1) par[k].x-=1;
+				else if(par[k].x<0) par[k].x+=1;
+				//update de velocidade e posicao em y
+				compvy=(accely(i+j,k)+accely(p+j,k)+accely(q+j,k)+accely(i+r,k)+accely(i+s,k)+accely(p+r,k)+accely(q+s,k),accely(p+s,k)+accely(q+r,k))*tstep;
+				par[k].vy+= compvy;
+				par[k].y+= par[k].vy*tstep + (compvy*tstep)*0.5;
+				if(par[k].y>=1) par[k].y-=1;
+				else if(par[k].y<0) par[k].y+=1;
+				for(long n=0;floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy && n<ncside*ncside; n++){//update do centro de massa
+					mtr[n].mass+=par[k].m;
+					mtr[n].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
+					mtr[n].cmy+=(par[k].m*par[k].y)/mtr[n].mass; //centro de massa em y, para uma dada celula
+					break;
+				}
+				if(l==particle_iter-1){//na ultima iteracao, calcula o centro de massa de todas as particulas
+					xcm+=(par[k].m*par[k].x)/masssum;
+					ycm+=(par[k].m*par[k].y)/masssum;
+				}
 			}
 		}
 	}
@@ -131,7 +144,7 @@ void main(int argc, char** argv){
 	const long ncside = atoi(argv[2]);
 	const long long n_part = atoi(argv[3]);
 	const long particle_iter = atoi(argv[4]);
-	clock_t start, end;
+	clock_t start, end, mid;
     double cpu_time_used;
     start = clock();
 
@@ -140,6 +153,11 @@ void main(int argc, char** argv){
 	
 	init_particles(seed, ncside, n_part, par);
 	init_matrix(ncside);
+
+	mid = clock();
+    cpu_time_used = ((double) (mid - start)) / CLOCKS_PER_SEC;
+    printf("%f\n", cpu_time_used);
+
 	centerofmassinit(ncside, n_part);
 	wrapcalc(ncside, n_part, particle_iter);
 
