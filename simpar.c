@@ -142,8 +142,9 @@ void main(int argc, char** argv){
     double cpu_time_used;
     start = clock();
 
-	par = (particle_t*)calloc(n_part,sizeof(particle_t));
-	mtr = (MATRIX*)calloc(ncside*ncside,sizeof(MATRIX));
+	if ((par = (particle_t*)calloc(n_part,sizeof(particle_t)))==NULL) exit (0);
+
+	if ((mtr = (MATRIX*)calloc(ncside*ncside,sizeof(MATRIX)))==NULL) exit (0);
 	
 	init_particles(seed, ncside, n_part, par);
 	init_matrix(ncside);
