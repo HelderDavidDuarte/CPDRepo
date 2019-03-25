@@ -87,7 +87,7 @@ void wrapcalc(long ncside, long n_part, long particle_iter){
 	double xcm=0, ycm=0;
 	for(long l=0; l<particle_iter; l++){
 		for(long k=0; k<n_part; k++){
-			i=floor(par[k].x*ncside),j=floor(par[k].y*ncside);
+			i=par[k].x*ncside,j=par[k].y*ncside;
 			p=i+1,q=i-1,r=j+1,s=j-1;
 			if(p>=ncside) p=0;
 			else if(q<0) q=ncside-1;

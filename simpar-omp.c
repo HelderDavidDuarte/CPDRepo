@@ -72,6 +72,7 @@ double accely (long t, long k){//calculo da aceleracao de uma particula a um dad
 }
 
 void centerofmassinit (long ncside, long n_part){//calcula a primeira iteracao dos centros de massa, necessaria aos calculos seguintes
+	#pragma omp parallel for private(k)
 	for(long k=0; k<n_part; k++){
 		for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy; n++){
 			mtr[n].mass+=par[k].m;
@@ -87,14 +88,16 @@ void wrapcalc(long ncside, long n_part, long particle_iter){
 	double compvx, compvy;
 	double xcm=0, ycm=0;
 	for(long l=0; l<particle_iter; l++){
+	#pragma omp for
 		for(long k=0; k<n_part; k++){
-			i=floor(par[k].x*ncside),j=floor(par[k].y*ncside);
+			i=par[k].x*ncside,j=par[k].y*ncside;
 			p=i+1,q=i-1,r=j+1,s=j-1;
 			if(p>=ncside) p=0;
 			else if(q<0) q=ncside-1;
 			if(r>=ncside) r=0;
 			else if(s<0) s=ncside-1;
 			//update de velocidade e posicao em x
+			#pragma omp parallel private(compvx, compvy)
 			compvx=(accelx(i+j,k)+accelx(p+j,k)+accelx(q+j,k)+accelx(i+r,k)+accelx(i+s,k)+accelx(p+r,k)+accelx(q+s,k),accelx(p+s,k)+accelx(q+r,k))*tstep;
 			par[k].vx+= compvx;
 			par[k].x+= par[k].vx*tstep + (compvx*tstep)*0.5;
