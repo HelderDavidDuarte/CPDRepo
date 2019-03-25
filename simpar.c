@@ -72,7 +72,7 @@ double accely (long t, long k){//calculo da aceleracao de uma particula a um dad
 
 void centerofmassinit (long ncside, long n_part){//calcula a primeira iteracao dos centros de massa, necessaria aos calculos seguintes
 	for(long k=0; k<n_part; k++){
-		for(long n=0; n<ncside*ncside && floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy; n++){
+		for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy; n++){
 			mtr[n].mass+=par[k].m;
 			mtr[n].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
 			mtr[n].cmy+=(par[k].m*par[k].y)/mtr[n].mass; //centro de massa em y, para uma dada celula
@@ -106,7 +106,7 @@ void wrapcalc(long ncside, long n_part, long particle_iter){
 			if(par[k].y>=1) par[k].y-=1;
 			else if(par[k].y<0) par[k].y+=1;
 			
-			for(long n=0; n<ncside*ncside && floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy; n++){//update do centro de massa
+			for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy; n++){//update do centro de massa
 				mtr[n].mass+=par[k].m;
 				mtr[n].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
 				mtr[n].cmy+=(par[k].m*par[k].y)/mtr[n].mass; //centro de massa em y, para uma dada celula
