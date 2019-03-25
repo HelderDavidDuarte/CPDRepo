@@ -122,11 +122,22 @@ void wrapcalc(long ncside, long n_part, long particle_iter){
 	printf("%.2f %.2f\n", xcm, ycm);
 }
 
+void usage(){
+	printf("Usage: simpar <random generator seed> <grid size> <partical no> <time-step no>\n");
+	exit(0);
+}
+
 void main(int argc, char** argv){
-	const long seed = atoi(argv[1]);
-	const long ncside = atoi(argv[2]);
-	const long long n_part = atoi(argv[3]);
-	const long particle_iter = atoi(argv[4]);
+
+	if(argc!=5 || argv[1]<=0 || argv[2]<=0 || argv[3]<=0 || argv[4]<=0) usage();
+
+	char *ptr1, *ptr2, *ptr3, *ptr4;
+	const long seed = strtol(argv[1], &ptr1, 10);
+	const long ncside = strtol(argv[2], &ptr2, 10);
+	const long long n_part = strtol(argv[3], &ptr3, 10);
+	const long particle_iter = strtol(argv[4], &ptr4, 10);
+	if (*ptr1!=0 || *ptr2!=0 || *ptr3!=0 || *ptr4!=0) usage();
+
 	clock_t start, end;
     double cpu_time_used;
     start = clock();
