@@ -5,8 +5,7 @@
 #include <string.h>
 #include <errno.h>
 #include <math.h>
-#include <time.h>
-#include <omp.h> 
+#include <time.h> 
 
 #define RND0_1 ((double) random() / ((long long)1<<31))
 #define G 6.67408e-11
@@ -38,7 +37,6 @@ double masssum=0;
 
 void init_particles(long seed, long ncside, long long n_part, particle_t *par){
 	long long i;
-	int tid;
     srandom(seed);
     #pragma omp parallel for private(i, tid) //ainda nao funciona
     {
@@ -70,22 +68,22 @@ void init_matrix(long ncside){//funcao que inicializa o vetor de estruturas, ass
 	}
 }
 
-double accelx (long t, long k){//calculo da aceleracao de uma particula a um dado centro de massa, em x
+double accelx (long t, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em x
 	double rx=mtr[t].cmx-par[k].x;
 	if(rx<0.01) return 0;
 	return G*mtr[t].mass/(rx*rx*9);
 }
 
-double accely (long t, long k){//calculo da aceleracao de uma particula a um dado centro de massa, em y
+double accely (long t, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em y
 	double ry=mtr[t].cmy-par[k].y;
 	if(ry<0.01) return 0;
 	return G*mtr[t].mass/(ry*ry*9);
 }
 
-void centerofmassinit (long ncside, long n_part){//calcula a primeira iteracao dos centros de massa, necessaria aos calculos seguintes
+void centerofmassinit (long ncside, long long n_part){//calcula a primeira iteracao dos centros de massa, necessaria aos calculos seguintes
 	#pragma omp parallel for
 	{
-		for(long k=0; k<n_part; k++){
+		for(long long k=0; k<n_part; k++){
 			for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy && n<ncside*ncside; n++){
 				mtr[n].mass+=par[k].m;
 				mtr[n].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
@@ -96,14 +94,14 @@ void centerofmassinit (long ncside, long n_part){//calcula a primeira iteracao d
 	}
 }
 
-void wrapcalc(long ncside, long n_part, long particle_iter){
+void wrapcalc(long ncside, long long n_part, long particle_iter){
 	long tstep=1,i,j,p,q,r,s;
-	double xcm=0, ycm=0;
 	double compvx, compvy;
+	double xcm=0, ycm=0;
 	for(long l=0; l<particle_iter; l++){
 		#pragma omp parallel for
 		{
-			for(long k=0; k<n_part; k++){
+		for(long long k=0; k<n_part; k++){
 				i=par[k].x*ncside,j=par[k].y*ncside;
 				p=i+1,q=i-1,r=j+1,s=j-1;
 				if(p>=ncside) p=0;
@@ -122,7 +120,8 @@ void wrapcalc(long ncside, long n_part, long particle_iter){
 				par[k].y+= par[k].vy*tstep + (compvy*tstep)*0.5;
 				if(par[k].y>=1) par[k].y-=1;
 				else if(par[k].y<0) par[k].y+=1;
-				for(long n=0;floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy && n<ncside*ncside; n++){//update do centro de massa
+				
+				for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy && n<ncside*ncside; n++){//update do centro de massa
 					mtr[n].mass+=par[k].m;
 					mtr[n].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
 					mtr[n].cmy+=(par[k].m*par[k].y)/mtr[n].mass; //centro de massa em y, para uma dada celula
@@ -139,25 +138,32 @@ void wrapcalc(long ncside, long n_part, long particle_iter){
 	printf("%.2f %.2f\n", xcm, ycm);
 }
 
+void usage(){
+	printf("Usage: simpar <random generator seed> <grid size> <partical no> <time-step no>\n");
+	exit(0);
+}
+
 void main(int argc, char** argv){
-	const long seed = atoi(argv[1]);
-	const long ncside = atoi(argv[2]);
-	const long long n_part = atoi(argv[3]);
-	const long particle_iter = atoi(argv[4]);
-	clock_t start, end, mid;
+
+	if(argc!=5 || argv[1]<=0 || argv[2]<=0 || argv[3]<=0 || argv[4]<=0) usage();
+
+	char *ptr1, *ptr2, *ptr3, *ptr4;
+	const long seed = strtol(argv[1], &ptr1, 10);
+	const long ncside = strtol(argv[2], &ptr2, 10);
+	const long long n_part = strtol(argv[3], &ptr3, 10);
+	const long particle_iter = strtol(argv[4], &ptr4, 10);
+	if (*ptr1!=0 || *ptr2!=0 || *ptr3!=0 || *ptr4!=0) usage();
+
+	clock_t start, end;
     double cpu_time_used;
     start = clock();
 
-	par = (particle_t*)calloc(n_part,sizeof(particle_t));
-	mtr = (MATRIX*)calloc(ncside*ncside,sizeof(MATRIX));
+	if ((par = (particle_t*)calloc(n_part,sizeof(particle_t)))==NULL) exit (0);
+
+	if ((mtr = (MATRIX*)calloc(ncside*ncside,sizeof(MATRIX)))==NULL) exit (0);
 	
 	init_particles(seed, ncside, n_part, par);
 	init_matrix(ncside);
-
-	mid = clock();
-    cpu_time_used = ((double) (mid - start)) / CLOCKS_PER_SEC;
-    printf("%f\n", cpu_time_used);
-
 	centerofmassinit(ncside, n_part);
 	wrapcalc(ncside, n_part, particle_iter);
 

@@ -58,20 +58,20 @@ void init_matrix(long ncside){//funcao que inicializa o vetor de estruturas, ass
 	}
 }
 
-double accelx (long t, long k){//calculo da aceleracao de uma particula a um dado centro de massa, em x
+double accelx (long t, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em x
 	double rx=mtr[t].cmx-par[k].x;
 	if(rx<0.01) return 0;
 	return G*mtr[t].mass/(rx*rx*9);
 }
 
-double accely (long t, long k){//calculo da aceleracao de uma particula a um dado centro de massa, em y
+double accely (long t, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em y
 	double ry=mtr[t].cmy-par[k].y;
 	if(ry<0.01) return 0;
 	return G*mtr[t].mass/(ry*ry*9);
 }
 
-void centerofmassinit (long ncside, long n_part){//calcula a primeira iteracao dos centros de massa, necessaria aos calculos seguintes
-	for(long k=0; k<n_part; k++){
+void centerofmassinit (long ncside, long long n_part){//calcula a primeira iteracao dos centros de massa, necessaria aos calculos seguintes
+	for(long long k=0; k<n_part; k++){
 		for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy && n<ncside*ncside; n++){
 			mtr[n].mass+=par[k].m;
 			mtr[n].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
@@ -81,12 +81,12 @@ void centerofmassinit (long ncside, long n_part){//calcula a primeira iteracao d
 	}
 }
 
-void wrapcalc(long ncside, long n_part, long particle_iter){
+void wrapcalc(long ncside, long long n_part, long particle_iter){
 	long tstep=1,i,j,p,q,r,s;
 	double compvx, compvy;
 	double xcm=0, ycm=0;
 	for(long l=0; l<particle_iter; l++){
-		for(long k=0; k<n_part; k++){
+		for(long long k=0; k<n_part; k++){
 			i=par[k].x*ncside,j=par[k].y*ncside;
 			p=i+1,q=i-1,r=j+1,s=j-1;
 			if(p>=ncside) p=0;
