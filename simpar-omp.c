@@ -61,9 +61,12 @@ void init_matrix(long ncside){//funcao que inicializa o vetor de estruturas, ass
 	#pragma omp parallel for
 	{
 		for(long i=0;i<ncside;i++){
+			mtr[i].cmx=0;
 			mtr[i].ix=i;
+			mtr[i].mass=0;
 			for(long j=0;j<ncside;j++){
 				mtr[j].jy=j;
+				mtr[j].cmy=0;
 			}
 		}
 	}
@@ -100,6 +103,7 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 	double compvx, compvy;
 	double xcm=0, ycm=0;
 	for(long l=0; l<particle_iter; l++){
+		for(long n=0; n<ncside*ncside; n++) mtr[n].mass=0;
 		#pragma omp parallel for
 		{
 		for(long long k=0; k<n_part; k++){

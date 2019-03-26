@@ -51,9 +51,12 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par){
 
 void init_matrix(long ncside){//funcao que inicializa o vetor de estruturas, associando valores i,j para a matriz
 	for(long i=0;i<ncside;i++){
+		mtr[i].cmx=0;
 		mtr[i].ix=i;
+		mtr[i].mass=0;
 		for(long j=0;j<ncside;j++){
 			mtr[j].jy=j;
+			mtr[j].cmy=0;
 		}
 	}
 }
@@ -86,6 +89,7 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 	double compvx, compvy;
 	double xcm=0, ycm=0;
 	for(long l=0; l<particle_iter; l++){
+		for(long n=0; n<ncside*ncside; n++) mtr[n].mass=0;
 		for(long long k=0; k<n_part; k++){
 			i=par[k].x*ncside,j=par[k].y*ncside;
 			p=i+1,q=i-1,r=j+1,s=j-1;
