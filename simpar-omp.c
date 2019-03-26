@@ -39,7 +39,7 @@ double masssum=0;
 void init_particles(long seed, long ncside, long long n_part, particle_t *par){
 	long long i;
     srandom(seed);
-    #pragma omp parallel for
+    //#pragma omp parallel for reduction
     for(i=0; i < n_part; i++)
     {
         par[i].x = RND0_1;
@@ -61,13 +61,13 @@ void init_matrix(long ncside){//funcao que inicializa o vetor de estruturas, ass
 
 double accelx (long t, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em x
 	double rx=mtr[t].cmx-par[k].x;
-	if(rx<0.01) return 0;
+	if(rx<0.0005) return 0;
 	return G*mtr[t].mass/(rx*rx);
 }
 
 double accely (long t, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em y
 	double ry=mtr[t].cmy-par[k].y;
-	if(ry<0.01) return 0;
+	if(ry<0.0005) return 0;
 	return G*mtr[t].mass/(ry*ry);
 }
 
@@ -87,7 +87,6 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 	long i,j,p,q,r,s; //timestep = 1
 	double compvx, compvy, xcm=0, ycm=0;
 	for(long l=0; l<particle_iter; l++){
-		#pragma omp parallel for
 		for(long long k=0; k<n_part; k++){
 			i=par[k].x*ncside,j=par[k].y*ncside;
 			p=i+1,q=i-1,r=j+1,s=j-1;
