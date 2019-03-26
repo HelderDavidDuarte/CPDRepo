@@ -51,26 +51,21 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par){
 
 void init_matrix(long ncside){//funcao que inicializa o vetor de estruturas, associando valores i,j para a matriz
 	for(long i=0;i<ncside;i++){
-		mtr[i].cmx=0;
 		mtr[i].ix=i;
-		mtr[i].mass=0;
-		for(long j=0;j<ncside;j++){
-			mtr[j].jy=j;
-			mtr[j].cmy=0;
-		}
+		for(long j=0;j<ncside;j++) mtr[j].jy=j;
 	}
 }
 
 double accelx (long t, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em x
 	double rx=mtr[t].cmx-par[k].x;
 	if(rx<0.01) return 0;
-	return G*mtr[t].mass/(rx*rx*9);
+	return G*mtr[t].mass/(rx*rx);
 }
 
 double accely (long t, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em y
 	double ry=mtr[t].cmy-par[k].y;
 	if(ry<0.01) return 0;
-	return G*mtr[t].mass/(ry*ry*9);
+	return G*mtr[t].mass/(ry*ry);
 }
 
 void centerofmassinit (long ncside, long long n_part){//calcula a primeira iteracao dos centros de massa, necessaria aos calculos seguintes
@@ -85,11 +80,9 @@ void centerofmassinit (long ncside, long long n_part){//calcula a primeira itera
 }
 
 void wrapcalc(long ncside, long long n_part, long particle_iter){
-	long tstep=1,i,j,p,q,r,s;
-	double compvx, compvy;
-	double xcm=0, ycm=0;
+	long i,j,p,q,r,s; //timestep = 1
+	double compvx, compvy, xcm=0, ycm=0;
 	for(long l=0; l<particle_iter; l++){
-		for(long n=0; n<ncside*ncside; n++) mtr[n].mass=0;
 		for(long long k=0; k<n_part; k++){
 			i=par[k].x*ncside,j=par[k].y*ncside;
 			p=i+1,q=i-1,r=j+1,s=j-1;
@@ -98,15 +91,15 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 			if(r>=ncside) r=0;
 			else if(s<0) s=ncside-1;
 			//update de velocidade e posicao em x
-			compvx=(accelx(i+j,k)+accelx(p+j,k)+accelx(q+j,k)+accelx(i+r,k)+accelx(i+s,k)+accelx(p+r,k)+accelx(q+s,k),accelx(p+s,k)+accelx(q+r,k))*tstep;
+			compvx=(accelx(i+j,k)+accelx(p+j,k)+accelx(q+j,k)+accelx(i+r,k)+accelx(i+s,k)+accelx(p+r,k)+accelx(q+s,k),accelx(p+s,k)+accelx(q+r,k))/9;
 			par[k].vx+= compvx;
-			par[k].x+= par[k].vx*tstep + (compvx*tstep)*0.5;
+			par[k].x+= par[k].vx + compvx*0.5;
 			if(par[k].x>=1) par[k].x-=1;
 			else if(par[k].x<0) par[k].x+=1;
 			//update de velocidade e posicao em y
-			compvy=(accely(i+j,k)+accely(p+j,k)+accely(q+j,k)+accely(i+r,k)+accely(i+s,k)+accely(p+r,k)+accely(q+s,k),accely(p+s,k)+accely(q+r,k))*tstep;
+			compvy=(accely(i+j,k)+accely(p+j,k)+accely(q+j,k)+accely(i+r,k)+accely(i+s,k)+accely(p+r,k)+accely(q+s,k),accely(p+s,k)+accely(q+r,k))/9;
 			par[k].vy+= compvy;
-			par[k].y+= par[k].vy*tstep + (compvy*tstep)*0.5;
+			par[k].y+= par[k].vy + compvy*0.5;
 			if(par[k].y>=1) par[k].y-=1;
 			else if(par[k].y<0) par[k].y+=1;
 			
@@ -127,7 +120,7 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 }
 
 void usage(){
-	printf("Usage: simpar <random generator seed> <grid size> <partical no> <time-step no>\n");
+	printf("Usage: simpar <random generator seed> <grid size> <particle no> <time-step no>\n");
 	exit(0);
 }
 
