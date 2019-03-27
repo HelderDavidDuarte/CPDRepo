@@ -19,14 +19,14 @@ typedef struct particle
 	double vx;
 	double vy;
 	double m;
+	double cmx;
+	double cmy;
 
 }particle_t;
 
 typedef struct matrix
 {
 	double mass;
-	double cmx;
-	double cmy;
 	long ix;
 	long jy;
 
@@ -39,7 +39,6 @@ double masssum=0;
 void init_particles(long seed, long ncside, long long n_part, particle_t *par){
 	long long i;
     srandom(seed);
-    //#pragma omp parallel for reduction
     for(i=0; i < n_part; i++)
     {
         par[i].x = RND0_1;
@@ -47,7 +46,6 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par){
         par[i].vx = RND0_1 / ncside / 10.0;
         par[i].vy = RND0_1 / ncside / 10.0;
         par[i].m = RND0_1 * ncside / (G * 1e6 * n_part);
-        masssum+=par[i].m;
     }
 }
 
@@ -60,33 +58,44 @@ void init_matrix(long ncside){//funcao que inicializa o vetor de estruturas, ass
 }
 
 double accelx (long t, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em x
-	double rx=mtr[t].cmx-par[k].x;
-	if(rx<0.0005) return 0;
+	double rx;
+	if((rx=par[k].cmx-par[k].x)<0.0005) return 0;
 	return G*mtr[t].mass/(rx*rx);
 }
 
 double accely (long t, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em y
-	double ry=mtr[t].cmy-par[k].y;
-	if(ry<0.0005) return 0;
+	double ry;
+	if((ry=par[k].cmy-par[k].y)<0.0005) return 0;
 	return G*mtr[t].mass/(ry*ry);
 }
 
 void centerofmassinit (long ncside, long long n_part){//calcula a primeira iteracao dos centros de massa, necessaria aos calculos seguintes
 	#pragma omp parallel for
+	for(long n=0; n<ncside*ncside; n++){
+			for(long long k=0; k<n_part && floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy; k++)
+				mtr[n].mass+=par[k].m;
+		}
 	for(long long k=0; k<n_part; k++){
+		masssum+=par[k].m;
 		for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy && n<ncside*ncside; n++){
-			mtr[n].mass+=par[k].m;
-			mtr[n].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
-			mtr[n].cmy+=(par[k].m*par[k].y)/mtr[n].mass; //centro de massa em y, para uma dada celula
+			par[k].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
+			par[k].cmy+=(par[k].m*par[k].y)/mtr[n].mass; //centro de massa em y, para uma dada celula
 			break;
 		}
 	}
+	#pragma omp parallel for
+	for(long n=0; n<ncside*ncside; n++) mtr[n].mass=0;
 }
 
 void wrapcalc(long ncside, long long n_part, long particle_iter){
 	long i,j,p,q,r,s; //timestep = 1
 	double compvx, compvy, xcm=0, ycm=0;
 	for(long l=0; l<particle_iter; l++){
+		#pragma omp parallel for
+		for(long n=0; n<ncside*ncside; n++){
+			for(long long k=0; k<n_part && floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy; k++)
+				mtr[n].mass+=par[k].m;
+		}
 		for(long long k=0; k<n_part; k++){
 			i=par[k].x*ncside,j=par[k].y*ncside;
 			p=i+1,q=i-1,r=j+1,s=j-1;
@@ -107,17 +116,20 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 			if(par[k].y>=1) par[k].y-=1;
 			else if(par[k].y<0) par[k].y+=1;
 			
-			for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy && n<ncside*ncside; n++){//update do centro de massa
-				mtr[n].mass+=par[k].m;
-				mtr[n].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
-				mtr[n].cmy+=(par[k].m*par[k].y)/mtr[n].mass; //centro de massa em y, para uma dada celula
-				break;
-			}
 			if(l==particle_iter-1){//na ultima iteracao, calcula o centro de massa de todas as particulas
 				xcm+=(par[k].m*par[k].x)/masssum;
 				ycm+=(par[k].m*par[k].y)/masssum;
 			}
+			else{
+				for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy && n<ncside*ncside; n++){//update do centro de massa
+					par[k].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
+					par[k].cmy+=(par[k].m*par[k].y)/mtr[n].mass; //centro de massa em y, para uma dada celula
+					break;
+				}
+			}
 		}
+		#pragma omp parallel for
+		for(long n=0; n<ncside*ncside; n++) mtr[n].mass=0;
 	}
 	printf("%.2f %.2f\n", par[0].x, par[0].y);
 	printf("%.2f %.2f\n", xcm, ycm);
