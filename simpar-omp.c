@@ -50,7 +50,8 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par){
 }
 
 void init_matrix(long ncside){//funcao que inicializa o vetor de estruturas, associando valores i,j para a matriz
-	#pragma omp parallel for
+	long i, j;
+	#pragma omp parallel for private(i,j)
 	for(long i=0;i<ncside;i++){
 		mtr[i].ix=i;
 		for(long j=0;j<ncside;j++) mtr[j].jy=j;
@@ -70,32 +71,38 @@ double accely (long t, long long k){//calculo da aceleracao de uma particula a u
 }
 
 void centerofmassinit (long ncside, long long n_part){//calcula a primeira iteracao dos centros de massa, necessaria aos calculos seguintes
-	#pragma omp parallel for
-	for(long n=0; n<ncside*ncside; n++){
+	long n;
+	long long k;
+	#pragma omp parallel for private(n,k)
+	for(long n=0; n<ncside; n++){
 			for(long long k=0; k<n_part && floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy; k++)
 				mtr[n].mass+=par[k].m;
 		}
+	#pragma omp parallel for private(n,k) reduction(+:masssum)
 	for(long long k=0; k<n_part; k++){
 		masssum+=par[k].m;
-		for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy && n<ncside*ncside; n++){
+		for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy && n<ncside; n++){
 			par[k].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
 			par[k].cmy+=(par[k].m*par[k].y)/mtr[n].mass; //centro de massa em y, para uma dada celula
 			break;
 		}
 	}
-	#pragma omp parallel for
-	for(long n=0; n<ncside*ncside; n++) mtr[n].mass=0;
+	#pragma omp parallel for private(n)
+	for(long n=0; n<ncside; n++) mtr[n].mass=0;
 }
 
 void wrapcalc(long ncside, long long n_part, long particle_iter){
 	long i,j,p,q,r,s; //timestep = 1
 	double compvx, compvy, xcm=0, ycm=0;
+	long n;
+	long long k;
 	for(long l=0; l<particle_iter; l++){
-		#pragma omp parallel for
-		for(long n=0; n<ncside*ncside; n++){
+		#pragma omp parallel for private(n,k)
+		for(long n=0; n<ncside; n++){
 			for(long long k=0; k<n_part && floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy; k++)
 				mtr[n].mass+=par[k].m;
 		}
+		#pragma omp parallel for private(k,n,i,j,p,q,r,s,compvx,compvy) reduction(+:xcm) reduction(+:ycm)
 		for(long long k=0; k<n_part; k++){
 			i=par[k].x*ncside,j=par[k].y*ncside;
 			p=i+1,q=i-1,r=j+1,s=j-1;
@@ -121,15 +128,15 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 				ycm+=(par[k].m*par[k].y)/masssum;
 			}
 			else{
-				for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy && n<ncside*ncside; n++){//update do centro de massa
+				for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy && n<ncside; n++){//update do centro de massa
 					par[k].cmx+=(par[k].m*par[k].x)/mtr[n].mass; //centro de massa em x, para uma dada celula
 					par[k].cmy+=(par[k].m*par[k].y)/mtr[n].mass; //centro de massa em y, para uma dada celula
 					break;
 				}
 			}
 		}
-		#pragma omp parallel for
-		for(long n=0; n<ncside*ncside; n++) mtr[n].mass=0;
+		#pragma omp parallel for private(n)
+		for(long n=0; n<ncside; n++) mtr[n].mass=0;
 	}
 	printf("%.2f %.2f\n", par[0].x, par[0].y);
 	printf("%.2f %.2f\n", xcm, ycm);
@@ -151,10 +158,6 @@ void main(int argc, char** argv){
 	const long particle_iter = strtol(argv[4], &ptr4, 10);
 	if (*ptr1!=0 || *ptr2!=0 || *ptr3!=0 || *ptr4!=0) usage();
 
-	clock_t start, end;
-    double cpu_time_used;
-    start = clock();
-
 	if ((par = (particle_t*)calloc(n_part,sizeof(particle_t)))==NULL) exit (0);
 
 	if ((mtr = (MATRIX*)calloc(ncside*ncside,sizeof(MATRIX)))==NULL) exit (0);
@@ -164,8 +167,5 @@ void main(int argc, char** argv){
 	centerofmassinit(ncside, n_part);
 	wrapcalc(ncside, n_part, particle_iter);
 
-	end = clock();
-    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("%f\n", cpu_time_used);
 }
 

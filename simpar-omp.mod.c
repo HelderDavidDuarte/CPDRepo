@@ -56,13 +56,14 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par){
 }
 
 void init_matrix(long ncside){//funcao que inicializa o vetor de estruturas, associando valores i,j para a matriz
+	long i, j;
 POMP_Parallel_fork(&omp_rd_1);
-#line 53 "simpar-omp.c"
-	#pragma omp parallel    
+#line 54 "simpar-omp.c"
+	#pragma omp parallel     private(i,j)
 { POMP_Parallel_begin(&omp_rd_1);
 POMP_For_enter(&omp_rd_1);
-#line 53 "simpar-omp.c"
- #pragma omp          for nowait
+#line 54 "simpar-omp.c"
+ #pragma omp          for              nowait
 	for(long i=0;i<ncside;i++){
 		mtr[i].ix=i;
 		for(long j=0;j<ncside;j++) mtr[j].jy=j;
@@ -73,7 +74,7 @@ POMP_Barrier_exit(&omp_rd_1);
 POMP_For_exit(&omp_rd_1);
 POMP_Parallel_end(&omp_rd_1); }
 POMP_Parallel_join(&omp_rd_1);
-#line 58 "simpar-omp.c"
+#line 59 "simpar-omp.c"
 }
 
 double accelx (long t, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em x
@@ -89,13 +90,15 @@ double accely (long t, long long k){//calculo da aceleracao de uma particula a u
 }
 
 void centerofmassinit (long ncside, long long n_part){//calcula a primeira iteracao dos centros de massa, necessaria aos calculos seguintes
+	long n;
+	long long k;
 POMP_Parallel_fork(&omp_rd_2);
-#line 73 "simpar-omp.c"
-	#pragma omp parallel    
+#line 76 "simpar-omp.c"
+	#pragma omp parallel     private(n,k)
 { POMP_Parallel_begin(&omp_rd_2);
 POMP_For_enter(&omp_rd_2);
-#line 73 "simpar-omp.c"
- #pragma omp          for nowait
+#line 76 "simpar-omp.c"
+ #pragma omp          for              nowait
 	for(long n=0; n<ncside*ncside; n++){
 			for(long long k=0; k<n_part && floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy; k++)
 				mtr[n].mass+=par[k].m;
@@ -106,7 +109,14 @@ POMP_Barrier_exit(&omp_rd_2);
 POMP_For_exit(&omp_rd_2);
 POMP_Parallel_end(&omp_rd_2); }
 POMP_Parallel_join(&omp_rd_2);
-#line 78 "simpar-omp.c"
+#line 81 "simpar-omp.c"
+POMP_Parallel_fork(&omp_rd_3);
+#line 81 "simpar-omp.c"
+	#pragma omp parallel     private(n,k) reduction(+:masssum)
+{ POMP_Parallel_begin(&omp_rd_3);
+POMP_For_enter(&omp_rd_3);
+#line 81 "simpar-omp.c"
+ #pragma omp          for                                   nowait
 	for(long long k=0; k<n_part; k++){
 		masssum+=par[k].m;
 		for(long n=0; floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy && n<ncside*ncside; n++){
@@ -115,45 +125,61 @@ POMP_Parallel_join(&omp_rd_2);
 			break;
 		}
 	}
-POMP_Parallel_fork(&omp_rd_3);
-#line 86 "simpar-omp.c"
-	#pragma omp parallel    
-{ POMP_Parallel_begin(&omp_rd_3);
-POMP_For_enter(&omp_rd_3);
-#line 86 "simpar-omp.c"
- #pragma omp          for nowait
-	for(long n=0; n<ncside*ncside; n++) mtr[n].mass=0;
 POMP_Barrier_enter(&omp_rd_3);
 #pragma omp barrier
 POMP_Barrier_exit(&omp_rd_3);
 POMP_For_exit(&omp_rd_3);
 POMP_Parallel_end(&omp_rd_3); }
 POMP_Parallel_join(&omp_rd_3);
-#line 88 "simpar-omp.c"
-}
-
-void wrapcalc(long ncside, long long n_part, long particle_iter){
-	long i,j,p,q,r,s; //timestep = 1
-	double compvx, compvy, xcm=0, ycm=0;
-	for(long l=0; l<particle_iter; l++){
+#line 90 "simpar-omp.c"
 POMP_Parallel_fork(&omp_rd_4);
-#line 94 "simpar-omp.c"
-		#pragma omp parallel    
+#line 90 "simpar-omp.c"
+	#pragma omp parallel     private(n)
 { POMP_Parallel_begin(&omp_rd_4);
 POMP_For_enter(&omp_rd_4);
-#line 94 "simpar-omp.c"
-  #pragma omp          for nowait
-		for(long n=0; n<ncside*ncside; n++){
-			for(long long k=0; k<n_part && floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy; k++)
-				mtr[n].mass+=par[k].m;
-		}
+#line 90 "simpar-omp.c"
+ #pragma omp          for            nowait
+	for(long n=0; n<ncside*ncside; n++) mtr[n].mass=0;
 POMP_Barrier_enter(&omp_rd_4);
 #pragma omp barrier
 POMP_Barrier_exit(&omp_rd_4);
 POMP_For_exit(&omp_rd_4);
 POMP_Parallel_end(&omp_rd_4); }
 POMP_Parallel_join(&omp_rd_4);
-#line 99 "simpar-omp.c"
+#line 92 "simpar-omp.c"
+}
+
+void wrapcalc(long ncside, long long n_part, long particle_iter){
+	long i,j,p,q,r,s; //timestep = 1
+	double compvx, compvy, xcm=0, ycm=0;
+	long n;
+	long long k;
+	for(long l=0; l<particle_iter; l++){
+POMP_Parallel_fork(&omp_rd_5);
+#line 100 "simpar-omp.c"
+		#pragma omp parallel     private(n,k)
+{ POMP_Parallel_begin(&omp_rd_5);
+POMP_For_enter(&omp_rd_5);
+#line 100 "simpar-omp.c"
+  #pragma omp          for              nowait
+		for(long n=0; n<ncside*ncside; n++){
+			for(long long k=0; k<n_part && floor(par[k].x*ncside)==mtr[n].ix && floor(par[k].y*ncside)==mtr[n].jy; k++)
+				mtr[n].mass+=par[k].m;
+		}
+POMP_Barrier_enter(&omp_rd_5);
+#pragma omp barrier
+POMP_Barrier_exit(&omp_rd_5);
+POMP_For_exit(&omp_rd_5);
+POMP_Parallel_end(&omp_rd_5); }
+POMP_Parallel_join(&omp_rd_5);
+#line 105 "simpar-omp.c"
+POMP_Parallel_fork(&omp_rd_6);
+#line 105 "simpar-omp.c"
+		#pragma omp parallel     private(k,n,i,j,p,q,r,s,compvx,compvy) reduction(+:xcm) reduction(+:ycm)
+{ POMP_Parallel_begin(&omp_rd_6);
+POMP_For_enter(&omp_rd_6);
+#line 105 "simpar-omp.c"
+  #pragma omp          for                                                                          nowait
 		for(long long k=0; k<n_part; k++){
 			i=par[k].x*ncside,j=par[k].y*ncside;
 			p=i+1,q=i-1,r=j+1,s=j-1;
@@ -186,21 +212,28 @@ POMP_Parallel_join(&omp_rd_4);
 				}
 			}
 		}
-POMP_Parallel_fork(&omp_rd_5);
-#line 131 "simpar-omp.c"
-		#pragma omp parallel    
-{ POMP_Parallel_begin(&omp_rd_5);
-POMP_For_enter(&omp_rd_5);
-#line 131 "simpar-omp.c"
-  #pragma omp          for nowait
-		for(long n=0; n<ncside*ncside; n++) mtr[n].mass=0;
-POMP_Barrier_enter(&omp_rd_5);
+POMP_Barrier_enter(&omp_rd_6);
 #pragma omp barrier
-POMP_Barrier_exit(&omp_rd_5);
-POMP_For_exit(&omp_rd_5);
-POMP_Parallel_end(&omp_rd_5); }
-POMP_Parallel_join(&omp_rd_5);
-#line 133 "simpar-omp.c"
+POMP_Barrier_exit(&omp_rd_6);
+POMP_For_exit(&omp_rd_6);
+POMP_Parallel_end(&omp_rd_6); }
+POMP_Parallel_join(&omp_rd_6);
+#line 138 "simpar-omp.c"
+POMP_Parallel_fork(&omp_rd_7);
+#line 138 "simpar-omp.c"
+		#pragma omp parallel     private(n)
+{ POMP_Parallel_begin(&omp_rd_7);
+POMP_For_enter(&omp_rd_7);
+#line 138 "simpar-omp.c"
+  #pragma omp          for            nowait
+		for(long n=0; n<ncside*ncside; n++) mtr[n].mass=0;
+POMP_Barrier_enter(&omp_rd_7);
+#pragma omp barrier
+POMP_Barrier_exit(&omp_rd_7);
+POMP_For_exit(&omp_rd_7);
+POMP_Parallel_end(&omp_rd_7); }
+POMP_Parallel_join(&omp_rd_7);
+#line 140 "simpar-omp.c"
 	}
 	printf("%.2f %.2f\n", par[0].x, par[0].y);
 	printf("%.2f %.2f\n", xcm, ycm);
@@ -222,10 +255,6 @@ void main(int argc, char** argv){
 	const long particle_iter = strtol(argv[4], &ptr4, 10);
 	if (*ptr1!=0 || *ptr2!=0 || *ptr3!=0 || *ptr4!=0) usage();
 
-	clock_t start, end;
-    double cpu_time_used;
-    start = clock();
-
 	if ((par = (particle_t*)calloc(n_part,sizeof(particle_t)))==NULL) exit (0);
 
 	if ((mtr = (MATRIX*)calloc(ncside*ncside,sizeof(MATRIX)))==NULL) exit (0);
@@ -235,8 +264,5 @@ void main(int argc, char** argv){
 	centerofmassinit(ncside, n_part);
 	wrapcalc(ncside, n_part, particle_iter);
 
-	end = clock();
-    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("%f\n", cpu_time_used);
 }
 
