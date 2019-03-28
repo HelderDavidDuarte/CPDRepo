@@ -31,13 +31,13 @@ struct ompregdescr omp_rd_5 = {
 #define POMP_DLIST_00005 shared(omp_rd_5)
 
 struct ompregdescr omp_rd_6 = {
-  "parallelfor", "", 0, "simpar-omp.c", 105, 105, 137, 137
+  "parallelfor", "", 0, "simpar-omp.c", 105, 105, 145, 145
 };
 
 #define POMP_DLIST_00006 shared(omp_rd_6)
 
 struct ompregdescr omp_rd_7 = {
-  "parallelfor", "", 0, "simpar-omp.c", 138, 138, 139, 139
+  "parallelfor", "", 0, "simpar-omp.c", 146, 146, 147, 147
 };
 
 #define POMP_DLIST_00007 shared(omp_rd_7)
