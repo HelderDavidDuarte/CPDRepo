@@ -18,6 +18,8 @@ typedef struct particle
 	double vx;
 	double vy;
 	double m;
+	long ix;
+	long jy;
 
 }particle_t;
 
@@ -43,67 +45,77 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par){
         par[i].vx = RND0_1 / ncside / 10.0;
         par[i].vy = RND0_1 / ncside / 10.0;
         par[i].m = RND0_1 * ncside / (G * 1e6 * n_part);
+        par[i].ix=par[i].x*ncside;
+        par[i].jy=par[i].y*ncside;
     }
 }
 
 double accelx (long i, long j, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em x
 	double rx;
+	printf("%g %g\n", mtr[i][j].mass, mtr[i][j].cmx);
 	if((rx=mtr[i][j].cmx-par[k].x)<EPSLON) return 0;
-	return G*mtr[i][j].mass/(rx*rx);
+	return G*mtr[i][j].mass/(rx*rx*9);
 }
 
 double accely (long i, long j, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em y
 	double ry;
 	if((ry=mtr[i][j].cmy-par[k].y)<EPSLON) return 0;
-	return G*mtr[i][j].mass/(ry*ry);
+	return G*mtr[i][j].mass/(ry*ry*9);
 }
 
 void centerofmassinit (long ncside, long long n_part){//calcula a primeira iteracao dos centros de massa, necessaria aos calculos seguintes
 	for(long long k=0;k<n_part;k++){
-		for(long i=0; i<ncside && i==floor(par[k].x*ncside); i++){
-			for(long j=0; j<ncside && j==floor(par[k].y*ncside); j++) mtr[i][j].mass+=par[k].m;
+		for(long i=0; i<ncside; i++){
+			for(long j=0; j<ncside; j++){
+				if(i==par[k].ix && j==par[k].jy)
+				mtr[i][j].mass+=par[k].m;
+			}
 		}
 	}
 	for(long long k=0; k<n_part; k++){
 		masssum+=par[k].m;
-		for(long i=0; i<ncside && i==floor(par[k].x*ncside); i++){
-			for(long j=0; j<ncside && j==floor(par[k].y*ncside); j++){
-				mtr[i][j].cmx+=(par[k].m*par[k].x)/mtr[i][j].mass; //centro de massa em x, para uma dada celula
-				mtr[i][j].cmy+=(par[k].m*par[k].y)/mtr[i][j].mass; //centro de massa em y, para uma dada celula
-				break;
+		for(long i=0; i<ncside; i++){
+			for(long j=0; j<ncside; j++){
+				if(i==par[k].ix && j==par[k].jy && mtr[i][j].mass!=0){
+					mtr[i][j].cmx+=(par[k].m*par[k].x)/mtr[i][j].mass; //centro de massa em x, para uma dada celula
+					mtr[i][j].cmy+=(par[k].m*par[k].y)/mtr[i][j].mass; //centro de massa em y, para uma dada celula
+				}
 			}
 		}
 	}
 }
 
 void wrapcalc(long ncside, long long n_part, long particle_iter){
-	long i,j,p,q,r,s; //timestep = 1
+	long i,j,p,q,r,s,t,u; //timestep = 1
 	double compvx, compvy, xcm=0, ycm=0;
 	for(long l=0; l<particle_iter; l++){
 		for(long i=0; i<ncside; i++){
 			for(long j=0; j<ncside; j++) mtr[i][j].mass=0;
 		}
 		for(long long k=0;k<n_part;k++){
-			for(long i=0; i<ncside && i==floor(par[k].x*ncside); i++){
-				for(long j=0; j<ncside && j==floor(par[k].y*ncside); j++) mtr[i][j].mass+=par[k].m;
+			for(long i=0; i<ncside; i++){
+				for(long j=0; j<ncside; j++){
+					if(i==par[k].ix && j==par[k].jy)
+					mtr[i][j].mass+=par[k].m;
+				}
 			}
 		}
 		for(long long k=0; k<n_part; k++){
-			compvx=0,compvy=0;
-			i=par[k].x*ncside,j=par[k].y*ncside;
-			p=i+1,q=i-1,r=j+1,s=j-1;
+			t=par[k].x*ncside,u=par[k].y*ncside;
+			p=t+1,q=t-1,r=u+1,s=u-1;
 			if(p>=ncside) p=0;
 			else if(q<0) q=ncside-1;
 			if(r>=ncside) r=0;
 			else if(s<0) s=ncside-1;
 			//update de velocidade e posicao em x
-			compvx=(accelx(i,j,k)+accelx(p,j,k)+accelx(q,j,k)+accelx(i,r,k)+accelx(i,s,k)+accelx(p,r,k)+accelx(q,s,k),accelx(p,s,k)+accelx(q,r,k))/9;
+			compvx=(accelx(t,u,k)+accelx(p,u,k)+accelx(q,u,k)+accelx(t,r,k)+accelx(t,s,k)+accelx(p,r,k)+accelx(q,s,k),accelx(p,s,k)+accelx(q,r,k));
+			printf("%g\n", compvx);
 			par[k].vx+= compvx;
 			par[k].x+= par[k].vx + compvx*0.5;
 			if(par[k].x>=1) par[k].x-=1;
 			else if(par[k].x<0) par[k].x+=1;
 			//update de velocidade e posicao em y
-			compvy=(accely(i,j,k)+accely(p,j,k)+accely(q,j,k)+accely(i,r,k)+accely(i,s,k)+accely(p,r,k)+accely(q,s,k),accely(p,s,k)+accely(q,r,k))/9;
+			compvy=(accely(t,u,k)+accely(p,u,k)+accely(q,u,k)+accely(t,r,k)+accely(t,s,k)+accely(p,r,k)+accely(q,s,k),accely(p,s,k)+accely(q,r,k));
 			par[k].vy+= compvy;
 			par[k].y+= par[k].vy + compvy*0.5;
 			if(par[k].y>=1) par[k].y-=1;
@@ -112,11 +124,12 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 				for(long i=0; i<ncside; i++){
 					for(long j=0; j<ncside; j++){mtr[i][j].cmx=0;mtr[i][j].cmy=0;}
 				}
-				for(long i=0; i<ncside && i==floor(par[k].x*ncside); i++){
-					for(long j=0; j<ncside && j==floor(par[k].y*ncside); j++){
-						mtr[i][j].cmx+=(par[k].m*par[k].x)/mtr[i][j].mass; //centro de massa em x, para uma dada celula
-						mtr[i][j].cmy+=(par[k].m*par[k].y)/mtr[i][j].mass; //centro de massa em y, para uma dada celula
-						break;
+				for(long i=0; i<ncside; i++){
+					for(long j=0; j<ncside; j++){
+						if(i==par[k].ix && j==par[k].jy && mtr[i][j].mass!=0){
+							mtr[i][j].cmx+=(par[k].m*par[k].x)/mtr[i][j].mass; //centro de massa em x, para uma dada celula
+							mtr[i][j].cmy+=(par[k].m*par[k].y)/mtr[i][j].mass; //centro de massa em y, para uma dada celula
+						}
 					}
 				}
 			}
