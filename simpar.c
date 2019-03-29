@@ -144,14 +144,14 @@ void usage(){
 
 void main(int argc, char** argv){
 
-	if(argc!=5 || argv[1]<=0 || argv[2]<=0 || argv[3]<=0 || argv[4]<=0) usage();
+	if(argc!=5) usage();
 
 	char *ptr1, *ptr2, *ptr3, *ptr4;
 	const long seed = strtol(argv[1], &ptr1, 10);
 	const long ncside = strtol(argv[2], &ptr2, 10);
 	const long long n_part = strtol(argv[3], &ptr3, 10);
 	const long particle_iter = strtol(argv[4], &ptr4, 10);
-	if (*ptr1!=0 || *ptr2!=0 || *ptr3!=0 || *ptr4!=0) usage();
+	if (*ptr1!=0 || *ptr2!=0 || *ptr3!=0 || *ptr4!=0 || seed <=0 || ncside<=0 || n_part<=0 || particle_iter<=0) usage();
 
 	clock_t start, end;
     double cpu_time_used;
