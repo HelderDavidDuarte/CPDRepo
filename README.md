@@ -2,6 +2,6 @@
 
 Makefile: make & make clean
 
-Serial working (final version, Complexity nearly O(n))
+Serial working (pre-final version, executing final fixes, Complexity nearly O(n))
 
-Open-MP in progress (pragma function calls don't seem to work)
+Open-MP almost done (waiting for serial corrections to be imported)
