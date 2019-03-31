@@ -50,12 +50,14 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par){
 
 double accelx (long i, long j, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em x
 	double rx=mtr[i][j].cmx-par[k].x;
+	if(mtr[i][j].cmx==0) return 0;
 	if(rx<EPSLON) return 0;
 	return G*mtr[i][j].mass/(rx*rx*9);
 }
-/////////////////////////////////////////////////// as funcoes de calculo das aceleracoes nao aparentam ser fontes de erro
+
 double accely (long i, long j, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em y
 	double ry=mtr[i][j].cmy-par[k].y;
+	if(mtr[i][j].cmy==0) return 0;
 	if(ry<EPSLON) return 0;
 	return G*mtr[i][j].mass/(ry*ry*9);
 }
@@ -67,7 +69,7 @@ void centerofmassinit (long ncside, long long n_part){//calcula a primeira itera
 		for(long i=0; i<ncside; i++){
 			for(long j=0; j<ncside && i==par[k].ix && j==par[k].jy; j++){
 				//if(i==par[k].ix && j==par[k].jy)
-				mtr[i][j].mass+=par[k].m; ///////////////////////PODE SER FONTE DE ERRO!
+				mtr[i][j].mass+=par[k].m;
 			}
 		}
 	}
@@ -83,7 +85,7 @@ void centerofmassinit (long ncside, long long n_part){//calcula a primeira itera
 }
 
 void wrapcalc(long ncside, long long n_part, long particle_iter){
-	long i,j,p,q,r,s,m[3],n[3]; //timestep = 1
+	long i,j,p,q,r,s,t,u; //timestep = 1
 	double compvx, compvy, xcm=0, ycm=0;
 	for(long l=0; l<particle_iter; l++){
 		for(long i=0; i<ncside; i++){
@@ -99,20 +101,18 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 		}
 		for(long long k=0; k<n_part; k++){
 			compvx=0, compvy=0;
-			m[1]=par[k].ix=par[k].x*ncside; //m e n sao vetores que constroem a grelha auxiliar de 3*3
-        	n[1]=par[k].jy=par[k].y*ncside;
-			m[2]=m[1]+1,m[0]=m[1]-1,n[2]=n[1]+1,n[0]=n[1]-1;
-			if(m[2]>=ncside) m[2]=0;
-			if(m[0]<0) m[0]=ncside-1;
-			if(n[2]>=ncside) n[2]=0;
-			if(n[0]<0) n[0]=ncside-1;
-			for(long v=0; v<3;v++){
-				for (long w=0; w<3;w++){
-					compvx+=accelx(m[v],n[w],k);
-					compvy+=accely(m[v],n[w],k);
-				}
-			}
-			//printf("%g\n", compvx);
+			t=par[k].ix=par[k].x*ncside; //m e n sao vetores que constroem a grelha auxiliar de 3*3
+        	u=par[k].jy=par[k].y*ncside;
+			t=par[k].x*ncside,u=par[k].y*ncside;
+			p=t+1,q=t-1,r=u+1,s=u-1;
+			if(p>=ncside) p=0;
+			else if(q<0) q=ncside-1;
+			if(r>=ncside) r=0;
+			else if(s<0) s=ncside-1;
+			compvx=(accelx(t,u,k)+accelx(p,u,k)+accelx(q,u,k)+accelx(t,r,k)+accelx(t,s,k)+accelx(p,r,k)+accelx(q,s,k)+accelx(p,s,k)+accelx(q,r,k))/9;
+			compvy=(accely(t,u,k)+accely(p,u,k)+accely(q,u,k)+accely(t,r,k)+accely(t,s,k)+accely(p,r,k)+accely(q,s,k)+accely(p,s,k)+accely(q,r,k))/9;
+
+			//rintf("%g\n", compvx);
 			//update de velocidade e posicao em x
 			par[k].vx+= compvx;
 			par[k].x+= par[k].vx + compvx*0.5;

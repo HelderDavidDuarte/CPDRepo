@@ -105,13 +105,13 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 			if(r>=ncside) r=0;
 			else if(s<0) s=ncside-1;
 			//update de velocidade e posicao em x
-			compvx=(accelx(t,u,k)+accelx(p,u,k)+accelx(q,u,k)+accelx(t,r,k)+accelx(t,s,k)+accelx(p,r,k)+accelx(q,s,k),accelx(p,s,k)+accelx(q,r,k))/9;
+			compvx=(accelx(t,u,k)+accelx(p,u,k)+accelx(q,u,k)+accelx(t,r,k)+accelx(t,s,k)+accelx(p,r,k)+accelx(q,s,k)+accelx(p,s,k)+accelx(q,r,k))/9;
 			par[k].vx+= compvx;
 			par[k].x+= par[k].vx + compvx*0.5;
 			if(par[k].x>=1) par[k].x-=1;
 			else if(par[k].x<0) par[k].x+=1;
 			//update de velocidade e posicao em y
-			compvy=(accely(t,u,k)+accely(p,u,k)+accely(q,u,k)+accely(t,r,k)+accely(t,s,k)+accely(p,r,k)+accely(q,s,k),accely(p,s,k)+accely(q,r,k))/9;
+			compvy=(accely(t,u,k)+accely(p,u,k)+accely(q,u,k)+accely(t,r,k)+accely(t,s,k)+accely(p,r,k)+accely(q,s,k)+accely(p,s,k)+accely(q,r,k))/9;
 			par[k].vy+= compvy;
 			par[k].y+= par[k].vy + compvy*0.5;
 			if(par[k].y>=1) par[k].y-=1;
