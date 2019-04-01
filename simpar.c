@@ -50,17 +50,15 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par){
 }
 
 void accelx (long i, long j, long long k, int flag){//calculo da aceleracao de uma particula a um dado centro de massa, em x
-	double tempx=mtr[i][j].cmx, rx;
-	if(flag) tempx=1-tempx;
-	rx=tempx-par[k].x;
+	double rx=mtr[i][j].cmx;
+	if(flag) rx=(-rx);
 	if(rx<0 && (-rx)>EPSLON) compvx-=G*mtr[i][j].mass/(rx*rx*9);
 	else if(rx>EPSLON) compvx+=G*mtr[i][j].mass/(rx*rx*9);
 }
 
 void accely (long i, long j, long long k, int flag){//calculo da aceleracao de uma particula a um dado centro de massa, em y
-	double tempy=mtr[i][j].cmy, ry;
-	if(flag) tempy=1-tempy;
-	ry=tempy-par[k].y;
+	double ry=mtr[i][j].cmy;
+	if(flag) ry=(-ry);
 	if(ry<0 && (-ry)>EPSLON) compvy-=G*mtr[i][j].mass/(ry*ry*9);
 	else if(ry>EPSLON) compvy+=G*mtr[i][j].mass/(ry*ry*9);
 }
@@ -70,21 +68,17 @@ void centerofmassinit (long ncside, long long n_part){//calcula a primeira itera
 		par[k].ix=par[k].x*ncside;
 		par[k].jy=par[k].y*ncside;
 		mtr[par[k].ix][par[k].jy].mass+=par[k].m;
+		masssum+=par[k].m;
 	}
 	for(long long k=0; k<n_part; k++){
-		masssum+=par[k].m;
-		for(long i=0; i<ncside; i++){
-			for(long j=0; j<ncside; j++){
-				mtr[i][j].cmx+=(par[k].m*par[k].x)/mtr[i][j].mass; //centro de massa em x, para uma dada celula
-				mtr[i][j].cmy+=(par[k].m*par[k].y)/mtr[i][j].mass; //centro de massa em y, para uma dada celula
-			}
-		}
+		mtr[par[k].ix][par[k].jy].cmx+=(par[k].m*par[k].x)/mtr[par[k].ix][par[k].jy].mass; //centro de massa em x, para uma dada celula
+		mtr[par[k].ix][par[k].jy].cmy+=(par[k].m*par[k].y)/mtr[par[k].ix][par[k].jy].mass; //centro de massa em y, para uma dada celula
 	}
 }
 
 void wrapcalc(long ncside, long long n_part, long particle_iter){
-	int wwxp, wwxq, wwyr, wwys;
-	long i,j,p,q,r,s,t,u; //timestep = 1
+	int wwx, wwy;
+	long p,q,r,s,t,u; //timestep = 1
 	double xcm=0, ycm=0;
 	for(long l=0; l<particle_iter; l++){
 		for(long i=0; i<ncside; i++){
@@ -97,16 +91,16 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 		}
 		for(long long k=0; k<n_part; k++){
 			compvx=0, compvy=0;
-			wwxp=0, wwxq=0, wwyr=0, wwys=0;
+			wwx=0, wwy=0;
 			t=par[k].x*ncside;
         	u=par[k].y*ncside;
 			p=t+1,q=t-1,r=u+1,s=u-1;
-			if(p>=ncside) {p=0; wwxp=1;}
-			if(q<0) {q=ncside-1; wwxq=1;}
-			if(r>=ncside) {r=0; wwyr=1;}
-			if(s<0) {s=ncside-1; wwys=1;}
-			accelx(t,u,k,0);accelx(p,u,k,wwxp);accelx(q,u,k,wwxq);accelx(t,r,k,0);accelx(t,s,k,0);accelx(p,r,k,wwxp);accelx(q,s,k,wwxq);accelx(p,s,k,wwxp);accelx(q,r,k,wwxq);
-			accely(t,u,k,0);accely(p,u,k,0);accely(q,u,k,0);accely(t,r,k,wwyr);accely(t,s,k,wwys);accely(p,r,k,wwyr);accely(q,s,k,wwys);accely(p,s,k,wwys);accely(q,r,k,wwyr);
+			if(p>=ncside) {p=0; wwx=1;}
+			else if(q<0) {q=ncside-1; wwx=1;}
+			if(r>=ncside) {r=0; wwy=1;}
+			else if(s<0) {s=ncside-1; wwy=1;}
+			accelx(t,u,k,wwx);accelx(p,u,k,wwx);accelx(q,u,k,wwx);accelx(t,r,k,wwx);accelx(t,s,k,wwx);accelx(p,r,k,wwx);accelx(q,s,k,wwx);accelx(p,s,k,wwx);accelx(q,r,k,wwx);
+			accely(t,u,k,wwy);accely(p,u,k,wwy);accely(q,u,k,wwy);accely(t,r,k,wwy);accely(t,s,k,wwy);accely(p,r,k,wwy);accely(q,s,k,wwy);accely(p,s,k,wwy);accely(q,r,k,wwy);
 
 			//update de velocidade e posicao em x
 			par[k].vx+= compvx;
