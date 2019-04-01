@@ -68,12 +68,8 @@ void accely (long i, long j, long long k, int flag){//calculo da aceleracao de u
 void centerofmassinit (long ncside, long long n_part){//calcula a primeira iteracao dos centros de massa, necessaria aos calculos seguintes
 	for(long long k=0;k<n_part;k++){
 		par[k].ix=par[k].x*ncside;
-        par[k].jy=par[k].y*ncside;
-		for(long i=0; i<ncside; i++){
-			for(long j=0; j<ncside; j++){
-				mtr[i][j].mass+=par[k].m;
-			}
-		}
+		par[k].jy=par[k].y*ncside;
+		mtr[par[k].ix][par[k].jy].mass+=par[k].m;
 	}
 	for(long long k=0; k<n_part; k++){
 		masssum+=par[k].m;
@@ -95,17 +91,15 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 			for(long j=0; j<ncside; j++) mtr[i][j].mass=0;
 		}
 		for(long long k=0;k<n_part;k++){
-			for(long i=0; i<ncside; i++){
-				for(long j=0; j<ncside; j++){
-					mtr[i][j].mass+=par[k].m;
-				}
-			}
+			par[k].ix=par[k].x*ncside;
+			par[k].jy=par[k].y*ncside;
+			mtr[par[k].ix][par[k].jy].mass+=par[k].m;
 		}
 		for(long long k=0; k<n_part; k++){
 			compvx=0, compvy=0;
 			wwxp=0, wwxq=0, wwyr=0, wwys=0;
-			t=par[k].ix=par[k].x*ncside;
-        	u=par[k].jy=par[k].y*ncside;
+			t=par[k].x*ncside;
+        	u=par[k].y*ncside;
 			p=t+1,q=t-1,r=u+1,s=u-1;
 			if(p>=ncside) {p=0; wwxp=1;}
 			if(q<0) {q=ncside-1; wwxq=1;}
@@ -124,18 +118,15 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 			par[k].y+= par[k].vy + compvy*0.5;
 			while(par[k].y>=1) par[k].y-=1;
 			while(par[k].y<0) par[k].y+=1;
+		}
+		for(long i=0; i<ncside; i++){
+			for(long j=0; j<ncside; j++){mtr[i][j].cmx=0;mtr[i][j].cmy=0;}
+		}
+		for(long long k=0; k<n_part; k++){
 			par[k].ix=par[k].x*ncside;
-        	par[k].jy=par[k].y*ncside;
-        
-			for(long i=0; i<ncside; i++){
-				for(long j=0; j<ncside; j++){mtr[i][j].cmx=0;mtr[i][j].cmy=0;}
-			}
-			for(long i=0; i<ncside; i++){
-				for(long j=0; j<ncside; j++){
-					mtr[i][j].cmx+=(par[k].m*par[k].x)/mtr[i][j].mass; //centro de massa em x, para uma dada celula
-					mtr[i][j].cmy+=(par[k].m*par[k].y)/mtr[i][j].mass; //centro de massa em y, para uma dada celula
-				}
-			}
+			par[k].jy=par[k].y*ncside;
+			mtr[par[k].ix][par[k].jy].cmx+=(par[k].m*par[k].x)/mtr[par[k].ix][par[k].jy].mass; //centro de massa em x, para uma dada celula
+			mtr[par[k].ix][par[k].jy].cmy+=(par[k].m*par[k].y)/mtr[par[k].ix][par[k].jy].mass; //centro de massa em y, para uma dada celula
 			if(l==particle_iter-1){//na ultima iteracao, calcula o centro de massa de todas as particulas
 				xcm+=(par[k].m*par[k].x)/masssum;
 				ycm+=(par[k].m*par[k].y)/masssum;
