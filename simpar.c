@@ -34,7 +34,7 @@ typedef struct matrix
 particle_t *par;
 MATRIX **mtr;
 double masssum=0;
-double compvx=0, compvy=0, wwx, wwy;
+double compvx=0, compvy=0;
 
 void init_particles(long seed, long ncside, long long n_part, particle_t *par){
 	long long i;
@@ -49,17 +49,17 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par){
     }
 }
 
-double accelx (long i, long j, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em x
+void accelx (long i, long j, long long k, int flag){//calculo da aceleracao de uma particula a um dado centro de massa, em x
 	double tempx=mtr[i][j].cmx, rx;
-	if(wwx) tempx=1-tempx;
+	if(flag) tempx=1-tempx;
 	rx=tempx-par[k].x;
 	if(rx<0 && (-rx)>EPSLON) compvx-=G*mtr[i][j].mass/(rx*rx*9);
 	else if(rx>EPSLON) compvx+=G*mtr[i][j].mass/(rx*rx*9);
 }
 
-double accely (long i, long j, long long k){//calculo da aceleracao de uma particula a um dado centro de massa, em y
+void accely (long i, long j, long long k, int flag){//calculo da aceleracao de uma particula a um dado centro de massa, em y
 	double tempy=mtr[i][j].cmy, ry;
-	if(wwy) tempy=1-tempy;
+	if(flag) tempy=1-tempy;
 	ry=tempy-par[k].y;
 	if(ry<0 && (-ry)>EPSLON) compvy-=G*mtr[i][j].mass/(ry*ry*9);
 	else if(ry>EPSLON) compvy+=G*mtr[i][j].mass/(ry*ry*9);
@@ -87,6 +87,7 @@ void centerofmassinit (long ncside, long long n_part){//calcula a primeira itera
 }
 
 void wrapcalc(long ncside, long long n_part, long particle_iter){
+	int wwxp, wwxq, wwyr, wwys;
 	long i,j,p,q,r,s,t,u; //timestep = 1
 	double xcm=0, ycm=0;
 	for(long l=0; l<particle_iter; l++){
@@ -102,16 +103,17 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 		}
 		for(long long k=0; k<n_part; k++){
 			compvx=0, compvy=0;
+			wwxp=0, wwxq=0, wwyr=0, wwys=0;
 			t=par[k].ix=par[k].x*ncside;
         	u=par[k].jy=par[k].y*ncside;
 			p=t+1,q=t-1,r=u+1,s=u-1;
-			if(p>=ncside) {p=0; wwx=1;}
-			if(q<0) {q=ncside-1; wwx=1;}
-			if(r>=ncside) {r=0; wwy=1;}
-			if(s<0) {s=ncside-1; wwy=1;}
-			accelx(t,u,k);accelx(p,u,k);accelx(q,u,k);accelx(t,r,k);accelx(t,s,k);accelx(p,r,k);accelx(q,s,k);accelx(p,s,k);accelx(q,r,k);
-			accely(t,u,k);accely(p,u,k);accely(q,u,k);accely(t,r,k);accely(t,s,k);accely(p,r,k);accely(q,s,k);accely(p,s,k);accely(q,r,k);
-			
+			if(p>=ncside) {p=0; wwxp=1;}
+			if(q<0) {q=ncside-1; wwxq=1;}
+			if(r>=ncside) {r=0; wwyr=1;}
+			if(s<0) {s=ncside-1; wwys=1;}
+			accelx(t,u,k,0);accelx(p,u,k,wwxp);accelx(q,u,k,wwxq);accelx(t,r,k,0);accelx(t,s,k,0);accelx(p,r,k,wwxp);accelx(q,s,k,wwxq);accelx(p,s,k,wwxp);accelx(q,r,k,wwxq);
+			accely(t,u,k,0);accely(p,u,k,0);accely(q,u,k,0);accely(t,r,k,wwyr);accely(t,s,k,wwys);accely(p,r,k,wwyr);accely(q,s,k,wwys);accely(p,s,k,wwys);accely(q,r,k,wwyr);
+
 			//update de velocidade e posicao em x
 			par[k].vx+= compvx;
 			par[k].x+= par[k].vx + compvx*0.5;
@@ -124,18 +126,17 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 			while(par[k].y<0) par[k].y+=1;
 			par[k].ix=par[k].x*ncside;
         	par[k].jy=par[k].y*ncside;
-			if(l!=particle_iter-1){
-				for(long i=0; i<ncside; i++){
-					for(long j=0; j<ncside; j++){mtr[i][j].cmx=0;mtr[i][j].cmy=0;}
-				}
-				for(long i=0; i<ncside; i++){
-					for(long j=0; j<ncside; j++){
-						mtr[i][j].cmx+=(par[k].m*par[k].x)/mtr[i][j].mass; //centro de massa em x, para uma dada celula
-						mtr[i][j].cmy+=(par[k].m*par[k].y)/mtr[i][j].mass; //centro de massa em y, para uma dada celula
-					}
+        
+			for(long i=0; i<ncside; i++){
+				for(long j=0; j<ncside; j++){mtr[i][j].cmx=0;mtr[i][j].cmy=0;}
+			}
+			for(long i=0; i<ncside; i++){
+				for(long j=0; j<ncside; j++){
+					mtr[i][j].cmx+=(par[k].m*par[k].x)/mtr[i][j].mass; //centro de massa em x, para uma dada celula
+					mtr[i][j].cmy+=(par[k].m*par[k].y)/mtr[i][j].mass; //centro de massa em y, para uma dada celula
 				}
 			}
-			else{//na ultima iteracao, calcula o centro de massa de todas as particulas
+			if(l==particle_iter-1){//na ultima iteracao, calcula o centro de massa de todas as particulas
 				xcm+=(par[k].m*par[k].x)/masssum;
 				ycm+=(par[k].m*par[k].y)/masssum;
 			}
