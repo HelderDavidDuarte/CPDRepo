@@ -50,14 +50,14 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par){
 }
 
 void accelx (long i, long j, long long k, int flag){//calculo da aceleracao de uma particula a um dado centro de massa, em x
-	double rx=mtr[i][j].cmx-par[k].x;
+	double rx=mtr[i][j].cmx;
 	if(flag) rx=(-rx);
 	if(rx<0 && (-rx)>EPSLON) compvx-=G*mtr[i][j].mass/(rx*rx*9);
 	else if(rx>EPSLON) compvx+=G*mtr[i][j].mass/(rx*rx*9);
 }
 
 void accely (long i, long j, long long k, int flag){//calculo da aceleracao de uma particula a um dado centro de massa, em y
-	double ry=mtr[i][j].cmy-par[k].y;
+	double ry=mtr[i][j].cmy;
 	if(flag) ry=(-ry);
 	if(ry<0 && (-ry)>EPSLON) compvy-=G*mtr[i][j].mass/(ry*ry*9);
 	else if(ry>EPSLON) compvy+=G*mtr[i][j].mass/(ry*ry*9);
