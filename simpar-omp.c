@@ -78,7 +78,7 @@ void centerofmassinit (long ncside, long long n_part){//calcula a primeira itera
 		mtr[par[k].ix][par[k].jy].mass+=par[k].m;
 		masssum+=par[k].m;
 	}
-	//#pragma omp parallel for
+	#pragma omp parallel for
 	for(long long k=0; k<n_part; k++){
 		mtr[par[k].ix][par[k].jy].cmx+=(par[k].m*par[k].x)/mtr[par[k].ix][par[k].jy].mass; //centro de massa em x, para uma dada celula
 		mtr[par[k].ix][par[k].jy].cmy+=(par[k].m*par[k].y)/mtr[par[k].ix][par[k].jy].mass; //centro de massa em y, para uma dada celula
@@ -96,18 +96,14 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 	double rx, ry;
 	double compvx=0, compvy=0;
 
-
-		printf("HERE ");
 	for(long l=0; l<particle_iter; l++){
 		
-		//#pragma omp parallel
-		//{
-			//#pragma omp for nowait //if bugs show up, the nowait might be cause
+
 				for(long i=0; i<ncside; i++){
 				for(long j=0; j<ncside; j++) mtr[i][j].mass=0;
 			}
 
-			//#pragma omp for nowait
+			#pragma omp parallel for schedule(static, 2)
 			for(long long k=0;k<n_part;k++){
 			par[k].ix=par[k].x*ncside;
 			par[k].jy=par[k].y*ncside;
@@ -137,7 +133,7 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 				}*/
 				#pragma omp parallel
 			{
-				#pragma omp for private(t,u,compvx, compvy, wwy, wwx, m, n, rx) schedule(dynamic, 2) nowait
+				#pragma omp for private(t,u,compvx, compvy, wwy, wwx, m, n, rx) schedule(static, 2) nowait
 				for(k=0; k<n_part; k++){
 					compvx=0, compvy=0;
 					wwx=0, wwy=0;
@@ -165,7 +161,7 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 						while(par[k].x>=1) par[k].x-=1;
 						while(par[k].x<0) par[k].x+=1;
 				}
-				#pragma omp for private(t,u, compvy, compvx, wwx, wwy, m, n, ry) schedule(dynamic, 2) nowait
+				#pragma omp for private(t,u, compvy, compvx, wwx, wwy, m, n, ry) schedule(static, 2) nowait
 				for(k=0; k<n_part; k++){
 					compvx=0, compvy=0;
 					wwx=0, wwy=0;
@@ -202,21 +198,19 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 					//par[k].y=local_y;
 
 				}
-			}
+			
 
 				/*for(k=0;k<n_part;k++){
 					par[k].vx=local_vx[k];
 					par[k].vy=local_vy[k];
 				}*/
-
-
 				//#pragma omp for
 				for(long i=0; i<ncside; i++){
 					for(long j=0; j<ncside; j++){mtr[i][j].cmx=0;mtr[i][j].cmy=0;}
 				}
 		//}
 		
-		//#pragma omp parallel for private(k) reduction(+:xcm) reduction(+:ycm) schedule(dynamic, 4) copyin(masssum)
+		#pragma omp for private(k) reduction(+:xcm) reduction(+:ycm) schedule(dynamic, 4) nowait
 		for(k=0; k<n_part; k++){
 			par[k].ix=par[k].x*ncside;
 			par[k].jy=par[k].y*ncside;
@@ -227,7 +221,7 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 				ycm+=(par[k].m*par[k].y)/masssum;
 			}
 		}
-	//}
+	}
 	}
 	printf("%.2f %.2f\n", par[0].x, par[0].y);
 	printf("%.2f %.2f\n", xcm, ycm);

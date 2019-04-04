@@ -147,9 +147,6 @@ void main(int argc, char** argv){
 	const long particle_iter = strtol(argv[4], &ptr4, 10);
 	if (*ptr1!=0 || *ptr2!=0 || *ptr3!=0 || *ptr4!=0 || seed <=0 || ncside<=0 || n_part<=0 || particle_iter<=0) usage();
 
-	clock_t start, end;
-    double cpu_time_used;
-    start = clock();
 
 	if ((par = (particle_t*)calloc(n_part,sizeof(particle_t)))==NULL) exit (0);
 
@@ -163,8 +160,5 @@ void main(int argc, char** argv){
 	centerofmassinit(ncside, n_part);
 	wrapcalc(ncside, n_part, particle_iter);
 
-	end = clock();
-    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("%f\n", cpu_time_used);
 }
 
