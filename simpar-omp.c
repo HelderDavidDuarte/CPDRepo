@@ -34,15 +34,18 @@ typedef struct matrix
 
 particle_t *par;
 MATRIX **mtr;
-//double masssum=0;
 
 
+/******************************************************************
+void init_particles 
+long seed:			seed for random generator (input)
+long long n_part:	number of particles (input)
+particle_t *par:	pointer to particle vector
 
-//#pragma omp threadprivate(n_part)
-//#pragma omp threadprivate(par)
-//#pragma omp threadprivate(mtr)
-//#pragma omp threadprivate(masssum)
-
+PURPOSE : 	Initializes particle position, velocity and mass from 
+			random value
+RETURN :  	void
+********************************************************************/
 void init_particles(long seed, long ncside, long long n_part, particle_t *par){
 	long long i;
     srandom(seed);
@@ -56,21 +59,17 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par){
     }
 }
 
-/*void accelx (long i, long j, long long k, int flag){//calculo da aceleracao de uma particula a um dado centro de massa, em x
-	double rx=mtr[i][j].cmx;
-	if(flag) rx=(-rx);
-	if(rx<0 && (-rx)>EPSLON) compvx-=G*mtr[i][j].mass/(rx*rx*9);
-	else if(rx>EPSLON) compvx+=G*mtr[i][j].mass/(rx*rx*9);
-}
+/******************************************************************
+double centerofmassinit
+long ncside:		size of grid(input)
+long long n_part:	number of particles (input)
+double masssum:		sum of mass of all particles
 
-void accely (long i, long j, long long k, int flag){//calculo da aceleracao de uma particula a um dado centro de massa, em y
-	double ry=mtr[i][j].cmy;
-	if(flag) ry=(-ry);
-	if(ry<0 && (-ry)>EPSLON) compvy-=G*mtr[i][j].mass/(ry*ry*9);
-	else if(ry>EPSLON) compvy+=G*mtr[i][j].mass/(ry*ry*9);
-}*/
-
-double centerofmassinit (long ncside, long long n_part, double masssum){//calcula a primeira iteracao dos centros de massa, necessaria aos calculos seguintes
+PURPOSE : 	Calculates first iteration of grid cell center of mass, sum 
+			of mass of all particles and which cell particles are in
+RETURN :  	masssum
+********************************************************************/
+double centerofmassinit (long ncside, long long n_part, double masssum){
 	#pragma omp parallel for reduction(+:masssum)
 	for(long long k=0;k<n_part;k++){
 		par[k].ix=par[k].x*ncside;
@@ -80,13 +79,23 @@ double centerofmassinit (long ncside, long long n_part, double masssum){//calcul
 	}
 	#pragma omp parallel for
 	for(long long k=0; k<n_part; k++){
-		mtr[par[k].ix][par[k].jy].cmx+=(par[k].m*par[k].x)/mtr[par[k].ix][par[k].jy].mass; //centro de massa em x, para uma dada celula
-		mtr[par[k].ix][par[k].jy].cmy+=(par[k].m*par[k].y)/mtr[par[k].ix][par[k].jy].mass; //centro de massa em y, para uma dada celula
+		mtr[par[k].ix][par[k].jy].cmx+=(par[k].m*par[k].x)/mtr[par[k].ix][par[k].jy].mass; //centre of mass for x, for each grid cell
+		mtr[par[k].ix][par[k].jy].cmy+=(par[k].m*par[k].y)/mtr[par[k].ix][par[k].jy].mass; //centre of mass for y, for each grid cell
 	}
-
 	return masssum;
 }
 
+/******************************************************************
+void wrapcalc
+long ncside:		size of grid(input)
+long long n_part:	number of particles (input)
+long particle_iter:	number of iterations to run (input)
+double masssum:		sum of mass of all particles
+
+PURPOSE : 	Bulk of calculations for particle position and velocity,
+			as well as grid cell center of mass
+RETURN :  	void
+********************************************************************/
 void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum){
 	int wwx, wwy;
 	int t, u;
@@ -100,114 +109,117 @@ void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum)
 
 	for(long l=0; l<particle_iter; l++){
 		
-
-				for(long i=0; i<ncside; i++){
-				for(long j=0; j<ncside; j++) mtr[i][j].mass=0;
+		for(long i=0; i<ncside; i++){	//set mass in each cell to 0, to be calculated for this iteration
+			for(long j=0; j<ncside; j++) mtr[i][j].mass=0;
 			}
 
-			
-			#pragma omp parallel for schedule(guided,4)
-			for(long long k=0;k<n_part;k++){
+		#pragma omp parallel for schedule(guided,4) //calculates which cell particles are in, as well as total cell mass
+		for(long long k=0;k<n_part;k++){
 			par[k].ix=par[k].x*ncside;
 			par[k].jy=par[k].y*ncside;
 			mtr[par[k].ix][par[k].jy].mass+=par[k].m;
+		}
+
+		#pragma omp parallel
+		{
+			#pragma omp for private(t,u,compvx, compvy, wwy, wwx, m, n, rx) schedule(guided,4) nowait //calculates position and velocity for each particle in x
+			for(k=0; k<n_part; k++){
+				compvx=0, compvy=0;
+				wwx=0, wwy=0;
+				m[1]=par[k].x*ncside;
+		       	n[1]=par[k].y*ncside;
+				m[2]=m[1]+1,m[0]=m[1]-1,n[2]=n[1]+1,n[0]=n[1]-1;
+				if(m[2]>=ncside) {m[2]=0; wwx=1;}
+				else if(m[0]<0) {m[0]=ncside-1; wwx=1;}
+				if(n[2]>=ncside) {n[2]=0; wwy=1;}
+				else if(n[0]<0) {n[0]=ncside-1; wwy=1;}
+				for(t=0; t<3; t++){
+					for(u=0; u<3; u++){
+						rx=mtr[m[t]][n[u]].cmx;
+						if(wwx) rx=(-rx);
+						if(rx<0 && (-rx)>EPSLON) compvx-=G*mtr[m[t]][n[u]].mass/(rx*rx*9);
+						else if(rx>EPSLON) compvx+=G*mtr[m[t]][n[u]].mass/(rx*rx*9);
+					}
+				}
+				par[k].vx+= compvx;
+				par[k].x+= par[k].vx + compvx*0.5;
+				while(par[k].x>=1) par[k].x-=1;
+				while(par[k].x<0) par[k].x+=1;
 			}
 
-			#pragma omp parallel
-			{
-				#pragma omp for private(t,u,compvx, compvy, wwy, wwx, m, n, rx) schedule(guided,4) nowait
-				for(k=0; k<n_part; k++){
-					compvx=0, compvy=0;
-					wwx=0, wwy=0;
-					m[1]=par[k].x*ncside;
-		        	n[1]=par[k].y*ncside;
-					m[2]=m[1]+1,m[0]=m[1]-1,n[2]=n[1]+1,n[0]=n[1]-1;
-					if(m[2]>=ncside) {m[2]=0; wwx=1;}
-					else if(m[0]<0) {m[0]=ncside-1; wwx=1;}
-					if(n[2]>=ncside) {n[2]=0; wwy=1;}
-					else if(n[0]<0) {n[0]=ncside-1; wwy=1;}
-					for(t=0; t<3; t++){
-						for(u=0; u<3; u++){
-							rx=mtr[m[t]][n[u]].cmx;
-							//printf("%f ", rx);
-							if(wwx) rx=(-rx);
-							if(rx<0 && (-rx)>EPSLON) compvx-=G*mtr[m[t]][n[u]].mass/(rx*rx*9);
-							else if(rx>EPSLON) compvx+=G*mtr[m[t]][n[u]].mass/(rx*rx*9);
-						}
+			#pragma omp for private(t,u, compvy, compvx, wwx, wwy, m, n, ry) schedule(guided,4) nowait //calculates position and velocity for each particle in x
+			for(k=0; k<n_part; k++){
+				compvx=0, compvy=0;
+				wwx=0, wwy=0;
+				m[1]=par[k].x*ncside;
+	        	n[1]=par[k].y*ncside;
+				m[2]=m[1]+1,m[0]=m[1]-1,n[2]=n[1]+1,n[0]=n[1]-1;
+				if(m[2]>=ncside) {m[2]=0; wwx=1;}
+				else if(m[0]<0) {m[0]=ncside-1; wwx=1;}
+				if(n[2]>=ncside) {n[2]=0; wwy=1;}
+				else if(n[0]<0) {n[0]=ncside-1; wwy=1;}
+				for(t=0; t<3; t++){
+					for(u=0; u<3; u++){
+						ry=mtr[m[t]][n[u]].cmy;
+						if(wwy) ry=(-ry);
+						if(ry<0 && (-ry)>EPSLON) compvy-=G*mtr[m[t]][n[u]].mass/(ry*ry*9);
+						else if(ry>EPSLON) compvy+=G*mtr[m[t]][n[u]].mass/(ry*ry*9);
 					}
-					par[k].vx+= compvx;
-						//#pragma omp atomic
-						par[k].x+= par[k].vx + compvx*0.5;
-						//for (local_x; local_x>=1;local_x--){}
-						//for (local_x;local_x<0;local_x++){}
-						while(par[k].x>=1) par[k].x-=1;
-						while(par[k].x<0) par[k].x+=1;
 				}
-				#pragma omp for private(t,u, compvy, compvx, wwx, wwy, m, n, ry) schedule(guided,4) nowait
-				for(k=0; k<n_part; k++){
-					compvx=0, compvy=0;
-					wwx=0, wwy=0;
-					m[1]=par[k].x*ncside;
-		        	n[1]=par[k].y*ncside;
-					m[2]=m[1]+1,m[0]=m[1]-1,n[2]=n[1]+1,n[0]=n[1]-1;
-					if(m[2]>=ncside) {m[2]=0; wwx=1;}
-					else if(m[0]<0) {m[0]=ncside-1; wwx=1;}
-					if(n[2]>=ncside) {n[2]=0; wwy=1;}
-					else if(n[0]<0) {n[0]=ncside-1; wwy=1;}
-					for(t=0; t<3; t++){
-						for(u=0; u<3; u++){
-							ry=mtr[m[t]][n[u]].cmy;
-							if(wwy) ry=(-ry);
-							if(ry<0 && (-ry)>EPSLON) compvy-=G*mtr[m[t]][n[u]].mass/(ry*ry*9);
-							else if(ry>EPSLON) compvy+=G*mtr[m[t]][n[u]].mass/(ry*ry*9);
-						}
-					}
-					par[k].vy+= compvy;
-					par[k].y+= par[k].vy + compvy*0.5;
-					while(par[k].y>=1) par[k].y-=1;
-					while(par[k].y<0) par[k].y+=1;
-					
-				}
+				par[k].vy+= compvy;
+				par[k].y+= par[k].vy + compvy*0.5;
+				while(par[k].y>=1) par[k].y-=1;
+				while(par[k].y<0) par[k].y+=1;	
+			}
 		}
-		//#pragma omp barrier
-				/*for(k=0;k<n_part;k++){
-					par[k].vx=local_vx[k];
-					par[k].vy=local_vy[k];
-				}*/
-				#pragma omp for private(j) collapse(2) schedule(static, 4)
-				for(long i=0; i<ncside; i++){
-					for(j=0; j<ncside; j++){mtr[i][j].cmx=0;mtr[i][j].cmy=0;}
-				}
 		
+		#pragma omp for private(j) collapse(2) schedule(static, 4) //sets centre of mass in each cell to 0, to be calculated for this iteration
+		for(long i=0; i<ncside; i++){
+			for(j=0; j<ncside; j++){mtr[i][j].cmx=0;mtr[i][j].cmy=0;}
+		}
 		
-
-		#pragma omp parallel for private(k) reduction(+:xcm) reduction(+:ycm) schedule(dynamic, 4)
+		#pragma omp parallel for private(k) reduction(+:xcm) reduction(+:ycm) schedule(dynamic, 4) 
 		for(k=0; k<n_part; k++){
 			par[k].ix=par[k].x*ncside;
 			par[k].jy=par[k].y*ncside;
-			mtr[par[k].ix][par[k].jy].cmx+=(par[k].m*par[k].x)/mtr[par[k].ix][par[k].jy].mass; //centro de massa em x, para uma dada celula
-			mtr[par[k].ix][par[k].jy].cmy+=(par[k].m*par[k].y)/mtr[par[k].ix][par[k].jy].mass; //centro de massa em y, para uma dada celula
-			if(l==particle_iter-1){//na ultima iteracao, calcula o centro de massa de todas as particulas
+			mtr[par[k].ix][par[k].jy].cmx+=(par[k].m*par[k].x)/mtr[par[k].ix][par[k].jy].mass; //centre of mass for x, for a given cell
+			mtr[par[k].ix][par[k].jy].cmy+=(par[k].m*par[k].y)/mtr[par[k].ix][par[k].jy].mass; //centre of mass for y, for a given cell
+			if(l==particle_iter-1){//on the last iteration, calculates centre of mass of all particles
 				xcm+=(par[k].m*par[k].x)/masssum;
 				ycm+=(par[k].m*par[k].y)/masssum;
 			}
 		}
-	//}
 	}
 	printf("%.2f %.2f\n", par[0].x, par[0].y);
 	printf("%.2f %.2f\n", xcm, ycm);
 }
 
+/******************************************************************
+void usage
+
+PURPOSE : 	To be used in case of input error, prints proper usage
+			and exits
+RETURN :  	void
+********************************************************************/
 void usage(){
 	printf("Usage: simpar <random generator seed> <grid size> <particle no> <time-step no>\n");
 	exit(0);
 }
 
+/******************************************************************
+void main
+int arcg
+char** argv
+
+PURPOSE : 	Gets user inputs, allocates memory for matrix and particles,
+			and runs calculation functions
+RETURN :  	void
+********************************************************************/
 void main(int argc, char** argv){
 
 	if(argc!=5) usage();
 	double masssum=0;
-
+	long l;
 	char *ptr1, *ptr2, *ptr3, *ptr4;
 	const long seed = strtol(argv[1], &ptr1, 10);
 	long ncside = strtol(argv[2], &ptr2, 10);
@@ -219,8 +231,6 @@ void main(int argc, char** argv){
 
 	if ((mtr = (MATRIX**)calloc(ncside,sizeof(MATRIX*)))==NULL) exit (0);
 
-	long l;
-	//#pragma omp parallel for
 	for (l=0; l<ncside; l++){
 		if ((mtr[l]=(MATRIX*)calloc(ncside,sizeof(MATRIX)))==NULL) exit (0);
 	}

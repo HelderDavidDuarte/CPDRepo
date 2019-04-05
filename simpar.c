@@ -36,6 +36,17 @@ MATRIX **mtr;
 double masssum=0;
 double compvx=0, compvy=0;
 
+
+/******************************************************************
+void init_particles 
+long seed:			seed for random generator (input)
+long long n_part:	number of particles (input)
+particle_t *par:	pointer to particle vector
+
+PURPOSE : 	Initializes particle position, velocity and mass from 
+			random value
+RETURN :  	void
+********************************************************************/
 void init_particles(long seed, long ncside, long long n_part, particle_t *par){
 	long long i;
     srandom(seed);
@@ -49,21 +60,48 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par){
     }
 }
 
-void accelx (long i, long j, long long k, int flag){//calculo da aceleracao de uma particula a um dado centro de massa, em x
+/******************************************************************
+void accelx
+long i:		matrix cell to access
+long j:		matrix cell to access
+int flag:	flag for grid cell location
+
+PURPOSE : 	calculates particle acceleration for a given centre of mass, in x
+RETURN :  	void
+********************************************************************/
+void accelx (long i, long j, int flag){
 	double rx=mtr[i][j].cmx;
 	if(flag) rx=(-rx);
 	if(rx<0 && (-rx)>EPSLON) compvx-=G*mtr[i][j].mass/(rx*rx*9);
 	else if(rx>EPSLON) compvx+=G*mtr[i][j].mass/(rx*rx*9);
 }
 
-void accely (long i, long j, long long k, int flag){//calculo da aceleracao de uma particula a um dado centro de massa, em y
+/******************************************************************
+void accely
+long i:		matrix cell to access
+long j:		matrix cell to access
+int flag:	flag for grid cell location
+
+PURPOSE : 	calculates particle acceleration for a given centre of mass, in y
+RETURN :  	void
+********************************************************************/
+void accely (long i, long j, int flag){
 	double ry=mtr[i][j].cmy;
 	if(flag) ry=(-ry);
 	if(ry<0 && (-ry)>EPSLON) compvy-=G*mtr[i][j].mass/(ry*ry*9);
 	else if(ry>EPSLON) compvy+=G*mtr[i][j].mass/(ry*ry*9);
 }
 
-void centerofmassinit (long ncside, long long n_part){//calcula a primeira iteracao dos centros de massa, necessaria aos calculos seguintes
+/******************************************************************
+void centerofmassinit
+long ncside:		size of grid(input)
+long long n_part:	number of particles (input)
+
+PURPOSE : 	Calculates first iteration of grid cell center of mass, sum 
+			of mass of all particles and which cell particles are in
+RETURN :  	void
+********************************************************************/
+void centerofmassinit (long ncside, long long n_part){
 	for(long long k=0;k<n_part;k++){
 		par[k].ix=par[k].x*ncside;
 		par[k].jy=par[k].y*ncside;
@@ -76,6 +114,16 @@ void centerofmassinit (long ncside, long long n_part){//calcula a primeira itera
 	}
 }
 
+/******************************************************************
+void wrapcalc
+long ncside:		size of grid(input)
+long long n_part:	number of particles (input)
+long particle_iter:	number of iterations to run (input)
+
+PURPOSE : 	Bulk of calculations for particle position and velocity,
+			as well as grid cell center of mass
+RETURN :  	void
+********************************************************************/
 void wrapcalc(long ncside, long long n_part, long particle_iter){
 	int wwx, wwy;
 	long p,q,r,s,t,u; //timestep = 1
@@ -99,8 +147,8 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 			else if(q<0) {q=ncside-1; wwx=1;}
 			if(r>=ncside) {r=0; wwy=1;}
 			else if(s<0) {s=ncside-1; wwy=1;}
-			accelx(t,u,k,wwx);accelx(p,u,k,wwx);accelx(q,u,k,wwx);accelx(t,r,k,wwx);accelx(t,s,k,wwx);accelx(p,r,k,wwx);accelx(q,s,k,wwx);accelx(p,s,k,wwx);accelx(q,r,k,wwx);
-			accely(t,u,k,wwy);accely(p,u,k,wwy);accely(q,u,k,wwy);accely(t,r,k,wwy);accely(t,s,k,wwy);accely(p,r,k,wwy);accely(q,s,k,wwy);accely(p,s,k,wwy);accely(q,r,k,wwy);
+			accelx(t,u,wwx);accelx(p,u,wwx);accelx(q,u,wwx);accelx(t,r,wwx);accelx(t,s,wwx);accelx(p,r,wwx);accelx(q,s,wwx);accelx(p,s,wwx);accelx(q,r,wwx);
+			accely(t,u,wwy);accely(p,u,wwy);accely(q,u,wwy);accely(t,r,wwy);accely(t,s,wwy);accely(p,r,wwy);accely(q,s,wwy);accely(p,s,wwy);accely(q,r,wwy);
 
 			//update de velocidade e posicao em x
 			par[k].vx+= compvx;
@@ -131,11 +179,27 @@ void wrapcalc(long ncside, long long n_part, long particle_iter){
 	printf("%.2f %.2f\n", xcm, ycm);
 }
 
+/******************************************************************
+void usage
+
+PURPOSE : 	To be used in case of input error, prints proper usage
+			and exits
+RETURN :  	void
+********************************************************************/
 void usage(){
 	printf("Usage: simpar <random generator seed> <grid size> <particle no> <time-step no>\n");
 	exit(0);
 }
 
+/******************************************************************
+void main
+int arcg
+char** argv
+
+PURPOSE : 	Gets user inputs, allocates memory for matrix and particles,
+			and runs calculation functions
+RETURN :  	void
+********************************************************************/
 void main(int argc, char** argv){
 
 	if(argc!=5) usage();
