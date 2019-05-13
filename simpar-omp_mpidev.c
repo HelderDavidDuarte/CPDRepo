@@ -15,6 +15,9 @@
 #define BLOCK_HIGH(id,p,n) (BLOCK_LOW((id)+1,p,n)-1)
 #define BLOCK_SIZE(id,p,n) (BLOCK_HIGH(id,p,n)-BLOCK_LOW(id,p,n)+1)
 
+#define TAG_MTR 1
+#define TAG_PAR 2
+
 
 typedef struct particle
 {
@@ -38,8 +41,23 @@ typedef struct matrix
 
 particle_t *par;
 MATRIX **mtr;
+MPI_Datatype mpi_board_type;
+int rank, p;
 
 
+void Create_MPI_particle_t(){
+
+	int count = 7;
+	int array_of_blocklengths[] = { 1, 1, 1, 1, 1, 1, 1 };
+	MPI_Aint array_of_displacements[] = { offsetof(particle_t,x), offsetof(particle_t,y), offsetof(particle_t,vx), 
+										offsetof(particle_t,vy), offsetof(particle_t,m), offsetof(particle_t,ix), offsetof(particle_t,jy)};
+	MPI_Datatype array_of_types[] = { MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_LONG, MPI_LONG};
+	MPI_Datatype MPI_particle_t;
+
+	MPI_Type_create_struct( count, array_of_blocklengths, array_of_displacements, array_of_types, &MPI_particle_t );
+	MPI_Type_commit( &MPI_particle_t );
+
+}
 /******************************************************************
 void init_particles 
 long seed:			seed for random generator (input)
@@ -205,6 +223,58 @@ void usage(){
 	exit(0);
 }
 
+void Echo(char * msg) {
+	if (ECHO_ON)
+	{
+		printf("Node %d: %s\n", rank, msg);
+	}
+}
+
+void SendMatrix(long ncside){
+
+	for (int i=0; i<n_part;i++){
+		Echo("Sending matrix...");
+		MPI_Send(mtr, ncside*ncside, MPI_DOUBLE, i%p, TAG_MTR,  MPI_COMM_WORLD);
+	}
+
+}
+
+void ReceiveMatrix(long ncside){
+	MATRIX **mat;
+	int flag = 1;
+	while(1){
+		MPI_Iprobe(MPI_ANY_SOURCE, TAG_MTR, MPI_COMM_WORLD, &flag, MPI_STATUS_IGNORE);
+		if (!flag)
+			break;
+		mat=(MATRIX**)calloc(ncside,sizeof(MATRIX*));
+		Echo("Receiving matrix...");
+		MPI_Recv(mat, ncside*ncside, MPI_DOUBLE, MPI_ANY_SOURCE, TAG_MTR, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    	Echo("Matrix Received!");
+	}		
+}
+
+void SendParticles(long long n_part){
+
+	for (int i=0;i<n_part;i++){
+		Echo("Sending particle...");
+		MPI_Send(par[i], sizeof(particle_t*), MPI_particle_t, i%p, TAG_PAR, MPI_COMM_WORLD);
+	}
+}
+//NOT DONE YET!!!!!!!!!
+void ReceiveParticle(long long n_part){
+	particle_t *par;
+	int flag = 1;
+	while(1){
+		MPI_Iprobe(MPI_ANY_SOURCE, TAG_PAR, MPI_COMM_WORLD, &flag, MPI_STATUS_IGNORE);
+		if (!flag)
+			break;
+		PAR=(particle_t*)calloc(n_part,sizeof(particle_t));
+		Echo("Receiving matrix...");
+		MPI_Recv(mat, ncside*ncside, MPI_DOUBLE, MPI_ANY_SOURCE, TAG_MTR, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    	Echo("Matrix Received!");
+	}		
+}
+
 /******************************************************************
 void main
 int arcg
@@ -217,34 +287,48 @@ RETURN :  	void
 void main(int argc, char** argv){
 
 
-	int id, p;
-
 	MPI_Init (&argc, &argv);
- 	MPI_Barrier(MPI_COMM_WORLD);
- 	elapsed_time = -MPI_Wtime();
- 	MPI_Comm_rank (MPI_COMM_WORLD, &id);
+ 	//MPI_Barrier(MPI_COMM_WORLD);
+ 	MPI_Comm_rank (MPI_COMM_WORLD, &rank);
  	MPI_Comm_size (MPI_COMM_WORLD, &p);
 	
 	if(argc!=5) usage();
-	double masssum=0;
-	long l;
-	char *ptr1, *ptr2, *ptr3, *ptr4;
-	const long seed = strtol(argv[1], &ptr1, 10);
-	long ncside = strtol(argv[2], &ptr2, 10);
-	long long n_part = strtol(argv[3], &ptr3, 10);
-	const long particle_iter = strtol(argv[4], &ptr4, 10);
-	if (*ptr1!=0 || *ptr2!=0 || *ptr3!=0 || *ptr4!=0 || seed <=0 || ncside<=0 || n_part<=0 || particle_iter<=0) usage();
+		double masssum=0;
+		long l;
+		char *ptr1, *ptr2, *ptr3, *ptr4;
+		const long seed = strtol(argv[1], &ptr1, 10);
+		long ncside = strtol(argv[2], &ptr2, 10);
+		long long n_part = strtol(argv[3], &ptr3, 10);
+		const long particle_iter = strtol(argv[4], &ptr4, 10);
+		if (*ptr1!=0 || *ptr2!=0 || *ptr3!=0 || *ptr4!=0 || seed <=0 || ncside<=0 || n_part<=0 || particle_iter<=0) usage();
+	
+		Create_MPI_particle_t();
+	//SERIAL
+	if(rank==0){
+		
+		if ((par = (particle_t*)calloc(n_part,sizeof(particle_t)))==NULL) exit (0);
 
-	if ((par = (particle_t*)calloc(n_part,sizeof(particle_t)))==NULL) exit (0);
+		if ((mtr = (MATRIX**)calloc(ncside,sizeof(MATRIX*)))==NULL) exit (0);
 
-	if ((mtr = (MATRIX**)calloc(ncside,sizeof(MATRIX*)))==NULL) exit (0);
+		for (l=0; l<ncside; l++){
+			if ((mtr[l]=(MATRIX*)calloc(ncside,sizeof(MATRIX)))==NULL) exit (0);
+		}
+	
+		init_particles(seed, ncside, n_part, par);
+		masssum=centerofmassinit(ncside, n_part, masssum);
 
-	for (l=0; l<ncside; l++){
-		if ((mtr[l]=(MATRIX*)calloc(ncside,sizeof(MATRIX)))==NULL) exit (0);
+		SendMatrix();
 	}
 	
-	init_particles(seed, ncside, n_part, par);
-	masssum=centerofmassinit(ncside, n_part, masssum);
+	MPI_Barrier(MPI_COMM_WORLD);
+
+	if(rank==0)
+		SendParticles();
+
+	MPI_Barrier(MPI_C0MM_WORLD);
+	
+
+	//RECEIVE INFO
 	wrapcalc(ncside, n_part, particle_iter, masssum);
 
 }
