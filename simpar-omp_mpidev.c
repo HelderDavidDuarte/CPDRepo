@@ -259,6 +259,7 @@ void Echo(char * msg) {
 
 void SendMatrix(long ncside, long long n_part){
 
+	MATRIX *m1=&mtr[0][0];
 	/*for (int i=0;i<ncside;i++){
 		for(int j=0;j<ncside;j++){
 			mtr[i][j].mass=4.0003;
@@ -268,7 +269,7 @@ void SendMatrix(long ncside, long long n_part){
 	}*/
 	for (int i=0; i<p;i++){
 		Echo("Sending matrix...");
-		MPI_Send(&mtr, 1, matrix_2D, i, TAG_MTR,  MPI_COMM_WORLD);
+		MPI_Send(m1, 3*ncside, MPI_DOUBLE, i, TAG_MTR,  MPI_COMM_WORLD);
 
 		int row, columns;
 		for (int row=0; row<ncside; row++)
@@ -284,31 +285,28 @@ void SendMatrix(long ncside, long long n_part){
 }
 
 void ReceiveMatrix(long ncside){
-	MATRIX **mat;
-	int flag = 1;
-	while(1){
-		MPI_Iprobe(MPI_ANY_SOURCE, TAG_MTR, MPI_COMM_WORLD, &flag, MPI_STATUS_IGNORE);
-		if (!flag){
-			break;
-		}
-		mat=(MATRIX**)malloc(ncside*sizeof(MATRIX*));
-		for (int l=0; l<ncside; l++){
-			if ((mat[l]=(MATRIX*)malloc(ncside*sizeof(MATRIX)))==NULL) exit (0);
-		}
-		Echo("Receiving matrix...");
-		MPI_Recv(&mat, 1, matrix_2D, MPI_ANY_SOURCE, TAG_MTR, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    	Echo("Matrix Received!");
 
-    	int row, columns;
+		MATRIX *mat;
+		mat = (MATRIX*)calloc(ncside,sizeof(MATRIX));
+		
+		/*int row, columns;
 		for (int row=0; row<ncside; row++)
 		{
     		for(int columns=0; columns<ncside; columns++)
         	{
-        		 printf("%f     ", mat[row][columns].mass);
+        		 printf(" %d: %f     ", rank, mat[row][columns].mass);
         	}
     		printf("\n");
- 		}
-	}		
+ 		}*/
+
+		Echo("Receiving matrix...");
+		MPI_Recv(&(mat[0]), ncside*3, MPI_DOUBLE, 0, TAG_MTR, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    	Echo("Matrix Received!");
+    	printf(" %d: %f     ", rank, mat[0].mass);
+    	printf(" %d: %f     ", rank, mat[1].mass);
+    	printf(" %d: %f     ", rank, mat[2].mass);
+    	
+	
 }
 
 void SendParticles(long long n_part){
@@ -376,6 +374,13 @@ void main(int argc, char** argv){
 			if ((mtr[l]=(MATRIX*)calloc(ncside,sizeof(MATRIX)))==NULL) exit (0);
 		}
 	
+		for(int i=0; i<ncside;i++){
+			for(int j=0; j<ncside;j++){
+				mtr[i][j].mass=0.0;
+				mtr[i][j].cmx=0.0;
+				mtr[i][j].cmy=0.0;
+			}
+		}
 		init_particles(seed, ncside, n_part, par);
 		masssum=centerofmassinit(ncside, n_part, masssum);
 
