@@ -7,6 +7,7 @@
 #include <math.h>
 #include <time.h>
 #include <mpi.h>
+#include <stddef.h>
 
 #define RND0_1 ((double) random() / ((long long)1<<31))
 #define G 6.67408e-11
@@ -28,8 +29,8 @@ typedef struct particle
 	double vx;
 	double vy;
 	double m;
-	long ix;
-	long jy;
+	double ix;
+	double jy;
 
 }particle_t;
 
@@ -119,16 +120,19 @@ PURPOSE : 	Calculates first iteration of grid cell center of mass, sum
 RETURN :  	masssum
 ********************************************************************/
 double centerofmassinit (long ncside, long long n_part, double masssum){
+	int ix=0, jy=0;
 	for(long long k=0;k<n_part;k++){
 		par[k].ix=par[k].x*ncside;
 		par[k].jy=par[k].y*ncside;
-		mtr[par[k].ix*ncside+par[k].jy].mass+=par[k].m;
+		ix=(int)par[k].ix;
+		jy=(int)par[k].jy;
+		mtr[ix*ncside+jy].mass+=par[k].m;
 		masssum+=par[k].m;
 	}
 
 	for(long long k=0; k<n_part; k++){
-		mtr[par[k].ix*ncside+par[k].jy].cmx+=(par[k].m*par[k].x)/mtr[par[k].ix*ncside+par[k].jy].mass; //centre of mass for x, for each grid cell
-		mtr[par[k].ix*ncside+par[k].jy].cmy+=(par[k].m*par[k].y)/mtr[par[k].ix*ncside+par[k].jy].mass; //centre of mass for y, for each grid cell
+		mtr[ix*ncside+jy].cmx+=(par[k].m*par[k].x)/mtr[ix*ncside+jy].mass; //centre of mass for x, for each grid cell
+		mtr[ix*ncside+jy].cmy+=(par[k].m*par[k].y)/mtr[ix*ncside+jy].mass; //centre of mass for y, for each grid cell
 	}
 	return masssum;
 }
@@ -260,13 +264,7 @@ void Echo(char * msg) {
 void SendMatrix(long ncside, long long n_part){
 
 	MATRIX *m1=&mtr[0];
-	/*for (int i=0;i<ncside;i++){
-		for(int j=0;j<ncside;j++){
-			mtr[i][j].mass=4.0003;
-			printf("%f    ", mtr[i][j].mass);
-		}
-		printf("\n");
-	}*/
+	
 	for (int i=0; i<p;i++){
 		Echo("Sending matrix...");
 		MPI_Send(m1, 3*ncside*ncside, MPI_DOUBLE, i, TAG_MTR,  MPI_COMM_WORLD);
@@ -285,16 +283,6 @@ void ReceiveMatrix(long ncside){
 
 		MATRIX *mat;
 		mat = (MATRIX*)calloc(ncside,sizeof(MATRIX));
-		
-		/*int row, columns;
-		for (int row=0; row<ncside; row++)
-		{
-    		for(int columns=0; columns<ncside; columns++)
-        	{
-        		 printf(" %d: %f     ", rank, mat[row][columns].mass);
-        	}
-    		printf("\n");
- 		}*/
 
 		Echo("Receiving matrix...");
 		MPI_Recv(&(mat[0]), ncside*ncside*3, MPI_DOUBLE, 0, TAG_MTR, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -304,29 +292,53 @@ void ReceiveMatrix(long ncside){
         		 printf("%f     ", mat[row].mass);
 
  		}
+ 		printf("\n");
     	
 	
 }
 
+particle_t * alloc_particles(long long n_part){
+
+	particle_t * part;
+	if(n_part%p==0){
+		part=(particle_t*)calloc((n_part/p),sizeof(particle_t));
+	}
+	else{
+		if(rank<n_part%p)
+			part=(particle_t*)calloc((n_part/p)+1,sizeof(particle_t));
+		else
+			part=(particle_t*)calloc((n_part/p),sizeof(particle_t));
+	}
+
+	return part;
+
+}
+
 void SendParticles(long long n_part){
 
+	particle_t * prt;
 	for (int i=0;i<n_part;i++){
+		prt=&par[i];
+		printf("HEY THERE %f %f\n", par[i].x, par[i].y);
 		Echo("Sending particle...");
-		MPI_Send(&par[i], sizeof(particle_t*), MPI_particle_t, i%p, TAG_PAR, MPI_COMM_WORLD);
+		MPI_Send(prt, 7, MPI_DOUBLE, i%p, TAG_PAR, MPI_COMM_WORLD);
 	}
 }
 
 void ReceiveParticle(long long n_part){
-	particle_t *par;
-	int flag = 1;
+	particle_t *part=alloc_particles(n_part);
+	int flag = 1, i=0;
 	while(1){
 		MPI_Iprobe(MPI_ANY_SOURCE, TAG_PAR, MPI_COMM_WORLD, &flag, MPI_STATUS_IGNORE);
 		if (!flag)
 			break;
-		par=(particle_t*)calloc(n_part,sizeof(particle_t));
 		Echo("Receiving particle...");
-		MPI_Recv(par, 1, MPI_particle_t, MPI_ANY_SOURCE, TAG_PAR, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		MPI_Recv(&part[i], 7, MPI_DOUBLE, MPI_ANY_SOURCE, TAG_PAR, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		
+		printf("HEY THERE RANK %d: %f %f\n", rank, part[i].x, part[i].y);
+		i++;
     	Echo("Particle Received!");
+
 	}		
 }
 
@@ -392,7 +404,7 @@ void main(int argc, char** argv){
 
 	MPI_Barrier(MPI_COMM_WORLD);
 
-	/*if(rank==0)
+	if(rank==0)
 		SendParticles(n_part);
 
 	MPI_Barrier(MPI_COMM_WORLD);
