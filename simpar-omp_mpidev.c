@@ -259,14 +259,16 @@ void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum,
 			if(l==particle_iter-1){//on the last iteration, calculates centre of mass of all particles
 				xcm+=(particle[k].m*particle[k].x)/masssum;
 				ycm+=(particle[k].m*particle[k].y)/masssum;
-				MPI_Allreduce(&xcm, &xcm, 1, MPI_DOUBLE,MPI_SUM, MPI_COMM_WORLD);
-				MPI_Allreduce(&ycm, &ycm, 1, MPI_DOUBLE,MPI_SUM, MPI_COMM_WORLD);
+				
 			}
 			mat[ix*ncside+jy].mass+=particle[k].m;
 		}
 	}
-	//printf("RANK %d %.2f %.2f\n", rank, particle[0].x, particle[0].y);
-	//printf("RANK %d %.2f %.2f\n", rank, xcm, ycm);
+
+		MPI_Allreduce(&xcm, &xcm, 1, MPI_DOUBLE,MPI_SUM, MPI_COMM_WORLD);
+		MPI_Allreduce(&ycm, &ycm, 1, MPI_DOUBLE,MPI_SUM, MPI_COMM_WORLD);
+	printf("RANK %d %.2f %.2f\n", rank, particle[0].x, particle[0].y);
+	printf("RANK %d %.2f %.2f\n", rank, xcm, ycm);
 }
 
 /******************************************************************
@@ -333,9 +335,9 @@ particle_t * alloc_particles(long long n_part){
 	}
 	else{
 		if(rank<n_part%p)
-			part=(particle_t*)calloc((n_part/p)+1,sizeof(particle_t));
+			part=(particle_t*)calloc((int)(n_part/p)+1,sizeof(particle_t));
 		else
-			part=(particle_t*)calloc((n_part/p),sizeof(particle_t));
+			part=(particle_t*)calloc((int)(n_part/p),sizeof(particle_t));
 	}
 
 	return part;
