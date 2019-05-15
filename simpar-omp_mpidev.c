@@ -166,9 +166,9 @@ void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum,
 	}
 	else{
 		if(rank<n_part%p)
-			par_size=(n_part/p)+1;
+			par_size=(int)(n_part/p)+1;
 		else
-			par_size=n_part/p;
+			par_size=(int)n_part/p;
 	}
 
 	for(long l=0; l<particle_iter; l++){
@@ -176,13 +176,6 @@ void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum,
 		for(long i=0; i<ncside; i++){	//set mass in each cell to 0, to be calculated for this iteration
 			for(long j=0; j<ncside; j++) mat[i*ncside+j].mass=0;
 			}
-
-		//for(long long k=0;k<n_part;k++){
-			//par[k].ix=par[k].x*ncside;
-			//par[k].jy=par[k].y*ncside;
-			
-		//}
-		//MATRIX HAS TO BE SHARED FOR ALL PROCESSES AFTER THIS IS DONE
 
 			for(k=0; k<par_size; k++){ 
 				compvx=0, compvy=0;
@@ -206,11 +199,8 @@ void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum,
 				particle[k].x+= particle[k].vx + compvx*0.5;
 				while(particle[k].x>=1) particle[k].x-=1;
 				while(particle[k].x<0) particle[k].x+=1;
-
-
 			}
 
-			
 			for(k=0; k<par_size; k++){
 				compvx=0, compvy=0;
 				wwx=0, wwy=0;
@@ -249,26 +239,27 @@ void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum,
 			particle[k].jy=particle[k].y*ncside;
 			ix=(int)particle[k].ix;
 			jy=(int)particle[k].jy;
+			mat[ix*ncside+jy].mass+=particle[k].m;
 			mat[ix*ncside+jy].cmx+=(particle[k].m*particle[k].x)/mat[ix*ncside+jy].mass; //centre of mass for x, for a given cell
 			mat[ix*ncside+jy].cmy+=(particle[k].m*particle[k].y)/mat[ix*ncside+jy].mass; //centre of mass for y, for a given cell
-			MPI_Allreduce(&(mat[ix*ncside+jy].cmx), &(mat[ix*ncside+jy].cmx), 1, MPI_DOUBLE,
-				MPI_SUM, MPI_COMM_WORLD);
-			
-			MPI_Allreduce(&(mat[ix*ncside+jy].cmy), &(mat[ix*ncside+jy].cmy), 1, MPI_DOUBLE,
-				MPI_SUM, MPI_COMM_WORLD);
 			if(l==particle_iter-1){//on the last iteration, calculates centre of mass of all particles
 				xcm+=(particle[k].m*particle[k].x)/masssum;
-				ycm+=(particle[k].m*particle[k].y)/masssum;
-				
+				ycm+=(particle[k].m*particle[k].y)/masssum;	
 			}
-			mat[ix*ncside+jy].mass+=particle[k].m;
+		}
+		for(k=0;k<ncside*ncside;k++){
+			MPI_Allreduce(&(mat[k].cmx), &(mat[k].cmx), 1, MPI_DOUBLE,
+				MPI_SUM, MPI_COMM_WORLD);
+			MPI_Allreduce(&(mat[k].cmy), &(mat[k].cmy), 1, MPI_DOUBLE,
+				MPI_SUM, MPI_COMM_WORLD);
 		}
 	}
-
-		MPI_Allreduce(&xcm, &xcm, 1, MPI_DOUBLE,MPI_SUM, MPI_COMM_WORLD);
-		MPI_Allreduce(&ycm, &ycm, 1, MPI_DOUBLE,MPI_SUM, MPI_COMM_WORLD);
-	printf("RANK %d %.2f %.2f\n", rank, particle[0].x, particle[0].y);
-	printf("RANK %d %.2f %.2f\n", rank, xcm, ycm);
+	MPI_Allreduce(&xcm, &xcm, 1, MPI_DOUBLE,MPI_SUM, MPI_COMM_WORLD);
+	MPI_Allreduce(&ycm, &ycm, 1, MPI_DOUBLE,MPI_SUM, MPI_COMM_WORLD);
+	if(rank==0){
+		printf("RANK %d %.2f %.2f\n", rank, particle[0].x, particle[0].y);
+		printf("RANK %d %.2f %.2f\n", rank, xcm, ycm);
+	}
 }
 
 /******************************************************************

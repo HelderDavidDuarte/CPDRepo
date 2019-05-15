@@ -113,13 +113,6 @@ void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum)
 			for(long j=0; j<ncside; j++) mtr[i][j].mass=0;
 			}
 
-		#pragma omp parallel for schedule(guided,4) //calculates which cell particles are in, as well as total cell mass
-		for(long long k=0;k<n_part;k++){
-			par[k].ix=par[k].x*ncside;
-			par[k].jy=par[k].y*ncside;
-			mtr[par[k].ix][par[k].jy].mass+=par[k].m;
-		}
-
 		#pragma omp parallel
 		{
 			#pragma omp for private(t,u,compvx, compvy, wwy, wwx, m, n, rx) schedule(guided,4) nowait //calculates position and velocity for each particle in x
@@ -182,6 +175,7 @@ void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum)
 		for(k=0; k<n_part; k++){
 			par[k].ix=par[k].x*ncside;
 			par[k].jy=par[k].y*ncside;
+			mtr[par[k].ix][par[k].jy].mass+=par[k].m;
 			mtr[par[k].ix][par[k].jy].cmx+=(par[k].m*par[k].x)/mtr[par[k].ix][par[k].jy].mass; //centre of mass for x, for a given cell
 			mtr[par[k].ix][par[k].jy].cmy+=(par[k].m*par[k].y)/mtr[par[k].ix][par[k].jy].mass; //centre of mass for y, for a given cell
 			if(l==particle_iter-1){//on the last iteration, calculates centre of mass of all particles
