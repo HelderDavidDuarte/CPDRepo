@@ -1,10 +1,10 @@
-CC=gcc -fopenmp
+CC=mpicc -g
 
-simpar: simpar-omp.o simpar.o
+simpar: simpar-mpi.o simpar.o
 	$(CC) -o simpar simpar.o -lm
-	$(CC) -o simpar-omp simpar-omp.o -lm
+	$(CC) -o simpar-mpi simpar-mpi.o -lm
 
 clean:
 	rm *.o
-	rm simpar-omp
+	rm simpar-mpi
 	rm simpar
