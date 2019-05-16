@@ -112,7 +112,7 @@ double centerofmassinit (long ncside, long long n_part, double masssum, MATRIX *
 	MPI_Allreduce(&(masssum), &(masssum), 1, MPI_DOUBLE,
 				MPI_SUM, MPI_COMM_WORLD);
 
-	printf("cinit RANK %d: %f %f %f %f\n", rank, mat[5].mass, mat[5].cmx, mat[5].cmy, masssum);
+	//printf("cinit RANK %d: %f %f %f %f\n", rank, mat[5].mass, mat[5].cmx, mat[5].cmy, masssum);
 
 	return masssum;
 }
@@ -152,35 +152,11 @@ void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum,
 
 	masssum=centerofmassinit (ncside, n_part,masssum, mat, particle, par_size);
 
-	printf("wrapcalc RANK %d: %f %f %f %f\n", rank, mat[5].mass, mat[5].cmx, mat[5].cmy, masssum);
+	//printf("wrapcalc RANK %d: %f %f %f %f\n", rank, mat[5].mass, mat[5].cmx, mat[5].cmy, masssum);
 	for(long l=0; l<particle_iter; l++){
 		
 		for(long i=0; i<ncside; i++){	//set mass in each cell to 0, to be calculated for this iteration
 			for(long j=0; j<ncside; j++) mat[i*ncside+j].mass=0;
-			}
-
-			for(k=0; k<par_size; k++){ 
-				compvx=0, compvy=0;
-				wwx=0, wwy=0;
-				m[1]=particle[k].x*ncside;
-		       	n[1]=particle[k].y*ncside;
-				m[2]=m[1]+1,m[0]=m[1]-1,n[2]=n[1]+1,n[0]=n[1]-1;
-				if(m[2]>=ncside) {m[2]=0; wwx=1;}
-				else if(m[0]<0) {m[0]=ncside-1; wwx=1;}
-				if(n[2]>=ncside) {n[2]=0; wwy=1;}
-				else if(n[0]<0) {n[0]=ncside-1; wwy=1;}
-				for(t=0; t<3; t++){
-					for(u=0; u<3; u++){
-						rx=mat[m[t]*ncside+n[u]].cmx;
-						if(wwx) rx=(-rx);
-						if(rx<0 && (-rx)>EPSLON) compvx-=G*mat[m[t]*ncside+n[u]].mass/(rx*rx*9);
-						else if(rx>EPSLON) compvx+=G*mat[m[t]*ncside+n[u]].mass/(rx*rx*9);
-					}
-				}
-				particle[k].vx+= compvx;
-				particle[k].x+= particle[k].vx + compvx*0.5;
-				while(particle[k].x>=1) particle[k].x-=1;
-				while(particle[k].x<0) particle[k].x+=1;
 			}
 
 			for(k=0; k<par_size; k++){
@@ -195,12 +171,20 @@ void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum,
 				else if(n[0]<0) {n[0]=ncside-1; wwy=1;}
 				for(t=0; t<3; t++){
 					for(u=0; u<3; u++){
+						rx=mat[m[t]*ncside+n[u]].cmx;
+						if(wwx) rx=(-rx);
+						if(rx<0 && (-rx)>EPSLON) compvx-=G*mat[m[t]*ncside+n[u]].mass/(rx*rx*9);
+						else if(rx>EPSLON) compvx+=G*mat[m[t]*ncside+n[u]].mass/(rx*rx*9);
 						ry=mat[m[t]*ncside+n[u]].cmy;
 						if(wwy) ry=(-ry);
 						if(ry<0 && (-ry)>EPSLON) compvy-=G*mat[m[t]*ncside+n[u]].mass/(ry*ry*9);
 						else if(ry>EPSLON) compvy+=G*mat[m[t]*ncside+n[u]].mass/(ry*ry*9);
 					}
 				}
+				particle[k].vx+= compvx;
+				particle[k].x+= particle[k].vx + compvx*0.5;
+				while(particle[k].x>=1) particle[k].x-=1;
+				while(particle[k].x<0) particle[k].x+=1;
 				particle[k].vy+= compvy;
 				particle[k].y+= particle[k].vy + compvy*0.5;
 				while(particle[k].y>=1) particle[k].y-=1;
