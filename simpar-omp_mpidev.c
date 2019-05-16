@@ -368,19 +368,18 @@ void main(int argc, char** argv){
 		
 		if ((par = (particle_t*)calloc(n_part,sizeof(particle_t)))==NULL) exit (0);
 
-		if ((mtr = (MATRIX*)calloc(ncside*ncside,sizeof(MATRIX)))==NULL) exit (0);
-
 		init_particles(seed, ncside, n_part, par);
 		//masssum=centerofmassinit(ncside, n_part, masssum);
-		SendMatrix(ncside, n_part);
+		//SendMatrix(ncside, n_part);
 		//SendMasssum(masssum);
 		SendParticles(n_part);
 
 	}
 	
 	MPI_Barrier(MPI_COMM_WORLD);
-
-	mat=ReceiveMatrix(ncside);
+	
+	mat = (MATRIX*)calloc(ncside*ncside,sizeof(MATRIX));
+	//mat=ReceiveMatrix(ncside);
 	part=ReceiveParticle(n_part, ncside);
 	//masssum=RcvMasssum();
 
