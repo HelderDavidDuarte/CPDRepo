@@ -16,8 +16,6 @@
 #define BLOCK_HIGH(id,p,n) (BLOCK_LOW((id)+1,p,n)-1)
 #define BLOCK_SIZE(id,p,n) (BLOCK_HIGH(id,p,n)-BLOCK_LOW(id,p,n)+1)
 
-#define ECHO_ON 0
-
 #define TAG_MTR 1
 #define TAG_PAR 2
 #define TAG_MAS 3
@@ -30,8 +28,6 @@ typedef struct particle
 	double vx;
 	double vy;
 	double m;
-	double ix;
-	double jy;
 
 }particle_t;
 
@@ -63,9 +59,9 @@ PURPOSE : 	Initializes particle position, velocity and mass from
 			random value
 RETURN :  	void
 ********************************************************************/
-void init_particles(long seed, long ncside, long long n_part, particle_t *par){	//NAO PARALELIZAR
+void init_particles(long seed, long ncside, long long n_part, particle_t *par){
 	long long i;
-    srandom(seed); //isto não pode ser paralelizado
+    srandom(seed); 
     for(i=0; i < n_part; i++)
     {
         par[i].x = RND0_1;
@@ -78,26 +74,32 @@ void init_particles(long seed, long ncside, long long n_part, particle_t *par){	
 
 /******************************************************************
 double centerofmassinit
-long ncside:		size of grid(input)
-long long n_part:	number of particles (input)
-double masssum:		sum of mass of all particles
+long ncside:		    size of grid(input)
+long long n_part:	    number of particles (input)
+double masssum:		    sum of mass of all particles
+MATRIX *mat:            pointer to array which represents grid
+particle_t * particle:  pointer to array of particles
+int par_size:           number of particles handled in this process
 
 PURPOSE : 	Calculates first iteration of grid cell center of mass, sum 
 			of mass of all particles and which cell particles are in
 RETURN :  	masssum
 ********************************************************************/
 double centerofmassinit (long ncside, long long n_part, double masssum, MATRIX *mat, particle_t *part, int par_size){
-	int ix=0, jy=0;
-	for(long long k=0;k<par_size;k++){ //AS PARTICULAS PODEM SER INICIALIZADAS NOS PROCESSOS QUE AS VÃO UTILIZAR
-		ix=(int)part[k].ix;
-		jy=(int)part[k].jy;
+	int ix, jy, idx;
+	for(long long k=0;k<par_size;k++){ 
+        ix=part[k].x*ncside;
+		jy=part[k].y*ncside;
 		mat[ix*ncside+jy].mass+=part[k].m; 
 		masssum+=part[k].m;
 	}
 
 	for(long long k=0; k<par_size; k++){
-		mat[ix*ncside+jy].cmx+=(part[k].m*part[k].x)/mat[ix*ncside+jy].mass; //centre of mass for x, for each grid cell
-		mat[ix*ncside+jy].cmy+=(part[k].m*part[k].y)/mat[ix*ncside+jy].mass; //centre of mass for y, for each grid cell
+        ix=part[k].x*ncside;
+		jy=part[k].y*ncside;
+        idx=ix*ncside+jy;
+		mat[idx].cmx+=(part[k].m*part[k].x)/mat[idx].mass; //centre of mass for x, for each grid cell
+		mat[idx].cmy+=(part[k].m*part[k].y)/mat[idx].mass; //centre of mass for y, for each grid cell
 	}
 
 	for(int k=0;k<ncside*ncside;k++){
@@ -112,17 +114,19 @@ double centerofmassinit (long ncside, long long n_part, double masssum, MATRIX *
 	MPI_Allreduce(&(masssum), &(masssum), 1, MPI_DOUBLE,
 				MPI_SUM, MPI_COMM_WORLD);
 
-	//printf("cinit RANK %d: %f %f %f %f\n", rank, mat[5].mass, mat[5].cmx, mat[5].cmy, masssum);
+	
 
 	return masssum;
 }
 
 /******************************************************************
 void wrapcalc
-long ncside:		size of grid(input)
-long long n_part:	number of particles (input)
-long particle_iter:	number of iterations to run (input)
-double masssum:		sum of mass of all particles
+long ncside:		    size of grid(input)
+long long n_part:	    number of particles (input)
+long particle_iter:	    number of iterations to run (input)
+double masssum:		    sum of mass of all particles
+particle_t * particle:  pointer to array of particles
+MATRIX *mat:            pointer to array which represents grid
 
 PURPOSE : 	Bulk of calculations for particle position and velocity,
 			as well as grid cell center of mass
@@ -134,11 +138,9 @@ void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum,
 	long long k;
 	double xcm=0, ycm=0;
 	long m[]={0,0,0}, n[]={0,0,0};
-	long j;
 	double local_vx=0, local_vy=0, local_x=0, local_y=0;
-	double rx, ry;
-	double compvx=0, compvy=0;
-	int ix, jy;
+	double rx, ry, compvx, compvy;
+	int ix, jy, idx;
 
 	if(n_part%p==0){
 		par_size=n_part/p;
@@ -152,7 +154,6 @@ void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum,
 
 	masssum=centerofmassinit (ncside, n_part,masssum, mat, particle, par_size);
 
-	//printf("wrapcalc RANK %d: %f %f %f %f\n", rank, mat[5].mass, mat[5].cmx, mat[5].cmy, masssum);
 	for(long l=0; l<particle_iter; l++){
 
 		for(k=0; k<par_size; k++){
@@ -187,18 +188,17 @@ void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum,
 			while(particle[k].y<0) particle[k].y+=1;	
 		}
 		
-		for(long i=0; i<ncside; i++){
-			for(long j=0; j<ncside; j++){mat[i*ncside+j].cmx=0;mat[i*ncside+j].cmy=0; mat[i*ncside+j].mass=0;}
+		for(k=0; k<ncside*ncside; k++){
+			mat[k].cmx=0;mat[k].cmy=0; mat[k].mass=0;
 		}
 		
 		for(k=0; k<par_size; k++){
-			particle[k].ix=particle[k].x*ncside;
-			particle[k].jy=particle[k].y*ncside;
-			ix=(int)particle[k].ix;
-			jy=(int)particle[k].jy;
-			mat[ix*ncside+jy].mass+=particle[k].m;
-			mat[ix*ncside+jy].cmx+=(particle[k].m*particle[k].x)/mat[ix*ncside+jy].mass; //centre of mass for x, for a given cell
-			mat[ix*ncside+jy].cmy+=(particle[k].m*particle[k].y)/mat[ix*ncside+jy].mass; //centre of mass for y, for a given cell
+            ix=particle[k].x*ncside;
+            jy=particle[k].y*ncside;
+            idx=ix*ncside+jy;
+			mat[idx].mass+=particle[k].m;
+			mat[idx].cmx+=(particle[k].m*particle[k].x)/mat[idx].mass; //centre of mass for x, for a given cell
+			mat[idx].cmy+=(particle[k].m*particle[k].y)/mat[idx].mass; //centre of mass for y, for a given cell
 			if(l==particle_iter-1){//on the last iteration, calculates centre of mass of all particles
 				xcm+=(particle[k].m*particle[k].x)/masssum;
 				ycm+=(particle[k].m*particle[k].y)/masssum;	
@@ -211,11 +211,12 @@ void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum,
 				MPI_SUM, MPI_COMM_WORLD);
 		}
 	}
+	
 	MPI_Allreduce(&xcm, &xcm, 1, MPI_DOUBLE,MPI_SUM, MPI_COMM_WORLD);
 	MPI_Allreduce(&ycm, &ycm, 1, MPI_DOUBLE,MPI_SUM, MPI_COMM_WORLD);
 	if(rank==0){
-		printf("RANK %d %.2f %.2f\n", rank, particle[0].x, particle[0].y);
-		printf("RANK %d %.2f %.2f\n", rank, xcm, ycm);
+		printf("%.2f %.2f\n", particle[0].x, particle[0].y);
+		printf("%.2f %.2f\n", xcm, ycm);
 	}
 }
 
@@ -231,13 +232,14 @@ void usage(){
 	exit(0);
 }
 
-void Echo(char * msg) {
-	if (ECHO_ON)
-	{
-		printf("Node %d: %s\n", rank, msg);
-	}
-}
+/******************************************************************
+particle_t * alloc_particles
+long long n_part:	number of particles (input)
 
+PURPOSE : 	Allocate array of particles according to the number of
+            tasks (particles) to be handled in each process
+RETURN :  	part (pointer to array of particles)
+********************************************************************/
 particle_t * alloc_particles(long long n_part){
 
 	particle_t * part;
@@ -253,17 +255,31 @@ particle_t * alloc_particles(long long n_part){
 	return part;
 }
 
+/******************************************************************
+void SendParticles
+long long n_part:	number of particles (input)
+
+PURPOSE : 	Distributes (sends) particles among all running processes
+RETURN :  	void
+********************************************************************/
 void SendParticles(long long n_part){
 
 	particle_t * prt;
 	for (int i=0;i<n_part;i++){
 		prt=&par[i];
-		//printf("HEY THERE %f %f\n", par[i].x, par[i].y);
-		Echo("Sending particle...");
-		MPI_Send(prt, 7, MPI_DOUBLE, i%p, TAG_PAR, MPI_COMM_WORLD);
+		MPI_Send(prt, 5, MPI_DOUBLE, i%p, TAG_PAR, MPI_COMM_WORLD);
 	}
 }
 
+/******************************************************************
+particle_t * ReceiveParticle
+long long n_part:	number of particles (input)
+long ncside:		size of grid(input)
+
+PURPOSE : 	Allocates and receives particles from process 0, which
+            initializes them
+RETURN :  	part(pointer to particle array)
+********************************************************************/
 particle_t * ReceiveParticle(long long n_part, long ncside){
 	particle_t *part=alloc_particles(n_part);
 	int flag = 1, i=0;
@@ -271,12 +287,8 @@ particle_t * ReceiveParticle(long long n_part, long ncside){
 		MPI_Iprobe(MPI_ANY_SOURCE, TAG_PAR, MPI_COMM_WORLD, &flag, MPI_STATUS_IGNORE);
 		if (!flag)
 			break;
-		Echo("Receiving particle...");
-		MPI_Recv(&part[i], 7, MPI_DOUBLE, MPI_ANY_SOURCE, TAG_PAR, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-		part[i].ix=part[i].x*ncside;
-		part[i].jy=part[i].y*ncside;
+		MPI_Recv(&part[i], 5, MPI_DOUBLE, MPI_ANY_SOURCE, TAG_PAR, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		i++;
-    	Echo("Particle Received!");
 	}
 	return part;
 }
@@ -292,16 +304,15 @@ RETURN :  	void
 ********************************************************************/
 void main(int argc, char** argv){
 
-	
+	double secs;
 	MATRIX *mat;
 	particle_t *part;
+    
 	MPI_Init (&argc, &argv);
- 	//MPI_Barrier(MPI_COMM_WORLD);
  	MPI_Comm_rank (MPI_COMM_WORLD, &rank);
  	MPI_Comm_size (MPI_COMM_WORLD, &p);
 
- 	//printf("P IS %d\n", p);
-	
+	secs = - MPI_Wtime();
 	if(argc!=5) usage();
 		double masssum=0;
 		long l;
@@ -312,15 +323,11 @@ void main(int argc, char** argv){
 		const long particle_iter = strtol(argv[4], &ptr4, 10);
 		if (*ptr1!=0 || *ptr2!=0 || *ptr3!=0 || *ptr4!=0 || seed <=0 || ncside<=0 || n_part<=0 || particle_iter<=0) usage();
 	
-	//SERIAL
 	if(rank==0){
 		
 		if ((par = (particle_t*)calloc(n_part,sizeof(particle_t)))==NULL) exit (0);
 
 		init_particles(seed, ncside, n_part, par);
-		//masssum=centerofmassinit(ncside, n_part, masssum);
-		//SendMatrix(ncside, n_part);
-		//SendMasssum(masssum);
 		SendParticles(n_part);
 
 	}
@@ -328,21 +335,16 @@ void main(int argc, char** argv){
 	MPI_Barrier(MPI_COMM_WORLD);
 	
 	mat = (MATRIX*)calloc(ncside*ncside,sizeof(MATRIX));
-	//mat=ReceiveMatrix(ncside);
+
 	part=ReceiveParticle(n_part, ncside);
-	//masssum=RcvMasssum();
 
 	MPI_Barrier(MPI_COMM_WORLD);
 	wrapcalc(ncside, n_part, particle_iter, masssum, part, mat);
 
-	Echo("Finished!");
-
 	MPI_Barrier(MPI_COMM_WORLD);
-
-	if(rank==0){
-		free(par);
-		free(mtr);
-	}
+    secs += MPI_Wtime();
+	if(!rank) printf("Time:%12.6f sec,\n", secs);
+    
 	MPI_Finalize();
 
 	exit(0);
