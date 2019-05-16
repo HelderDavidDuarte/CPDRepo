@@ -154,49 +154,43 @@ void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum,
 
 	//printf("wrapcalc RANK %d: %f %f %f %f\n", rank, mat[5].mass, mat[5].cmx, mat[5].cmy, masssum);
 	for(long l=0; l<particle_iter; l++){
-		
-		for(long i=0; i<ncside; i++){	//set mass in each cell to 0, to be calculated for this iteration
-			for(long j=0; j<ncside; j++) mat[i*ncside+j].mass=0;
-			}
 
-			for(k=0; k<par_size; k++){
-				compvx=0, compvy=0;
-				wwx=0, wwy=0;
-				m[1]=particle[k].x*ncside;
-	        	n[1]=particle[k].y*ncside;
-				m[2]=m[1]+1,m[0]=m[1]-1,n[2]=n[1]+1,n[0]=n[1]-1;
-				if(m[2]>=ncside) {m[2]=0; wwx=1;}
-				else if(m[0]<0) {m[0]=ncside-1; wwx=1;}
-				if(n[2]>=ncside) {n[2]=0; wwy=1;}
-				else if(n[0]<0) {n[0]=ncside-1; wwy=1;}
-				for(t=0; t<3; t++){
-					for(u=0; u<3; u++){
-						rx=mat[m[t]*ncside+n[u]].cmx;
-						if(wwx) rx=(-rx);
-						if(rx<0 && (-rx)>EPSLON) compvx-=G*mat[m[t]*ncside+n[u]].mass/(rx*rx*9);
-						else if(rx>EPSLON) compvx+=G*mat[m[t]*ncside+n[u]].mass/(rx*rx*9);
-						ry=mat[m[t]*ncside+n[u]].cmy;
-						if(wwy) ry=(-ry);
-						if(ry<0 && (-ry)>EPSLON) compvy-=G*mat[m[t]*ncside+n[u]].mass/(ry*ry*9);
-						else if(ry>EPSLON) compvy+=G*mat[m[t]*ncside+n[u]].mass/(ry*ry*9);
-					}
+		for(k=0; k<par_size; k++){
+			compvx=0, compvy=0;
+			wwx=0, wwy=0;
+			m[1]=particle[k].x*ncside;
+	       	n[1]=particle[k].y*ncside;
+			m[2]=m[1]+1,m[0]=m[1]-1,n[2]=n[1]+1,n[0]=n[1]-1;
+			if(m[2]>=ncside) {m[2]=0; wwx=1;}
+			else if(m[0]<0) {m[0]=ncside-1; wwx=1;}
+			if(n[2]>=ncside) {n[2]=0; wwy=1;}
+			else if(n[0]<0) {n[0]=ncside-1; wwy=1;}
+			for(t=0; t<3; t++){
+				for(u=0; u<3; u++){
+					rx=mat[m[t]*ncside+n[u]].cmx;
+					if(wwx) rx=(-rx);
+					if(rx<0 && (-rx)>EPSLON) compvx-=G*mat[m[t]*ncside+n[u]].mass/(rx*rx*9);
+					else if(rx>EPSLON) compvx+=G*mat[m[t]*ncside+n[u]].mass/(rx*rx*9);
+					ry=mat[m[t]*ncside+n[u]].cmy;
+					if(wwy) ry=(-ry);
+					if(ry<0 && (-ry)>EPSLON) compvy-=G*mat[m[t]*ncside+n[u]].mass/(ry*ry*9);
+					else if(ry>EPSLON) compvy+=G*mat[m[t]*ncside+n[u]].mass/(ry*ry*9);
 				}
-				particle[k].vx+= compvx;
-				particle[k].x+= particle[k].vx + compvx*0.5;
-				while(particle[k].x>=1) particle[k].x-=1;
-				while(particle[k].x<0) particle[k].x+=1;
-				particle[k].vy+= compvy;
-				particle[k].y+= particle[k].vy + compvy*0.5;
-				while(particle[k].y>=1) particle[k].y-=1;
-				while(particle[k].y<0) particle[k].y+=1;	
 			}
-		
-		
-		for(long i=0; i<ncside; i++){
-			for(j=0; j<ncside; j++){mat[i*ncside+j].cmx=0;mat[i*ncside+j].cmy=0;}
+			particle[k].vx+= compvx;
+			particle[k].x+= particle[k].vx + compvx*0.5;
+			while(particle[k].x>=1) particle[k].x-=1;
+			while(particle[k].x<0) particle[k].x+=1;
+			particle[k].vy+= compvy;
+			particle[k].y+= particle[k].vy + compvy*0.5;
+			while(particle[k].y>=1) particle[k].y-=1;
+			while(particle[k].y<0) particle[k].y+=1;	
 		}
 		
-
+		for(long i=0; i<ncside; i++){
+			for(long j=0; j<ncside; j++){mat[i*ncside+j].cmx=0;mat[i*ncside+j].cmy=0; mat[i*ncside+j].mass=0;}
+		}
+		
 		for(k=0; k<par_size; k++){
 			particle[k].ix=particle[k].x*ncside;
 			particle[k].jy=particle[k].y*ncside;
@@ -244,37 +238,6 @@ void Echo(char * msg) {
 	}
 }
 
-void SendMatrix(long ncside, long long n_part){
-
-	MATRIX *m1=&mtr[0];
-	
-	for (int i=0; i<p;i++){
-		Echo("Sending matrix...");
-		MPI_Send(m1, 3*ncside*ncside, MPI_DOUBLE, i, TAG_MTR,  MPI_COMM_WORLD);
-
-		/*int row, columns;
-		for (int row=0; row<ncside*ncside; row++)
-		{
-        		 printf("%f     ", mtr[row].mass);
-
- 		}*/
-	}
-
-}
-
-MATRIX * ReceiveMatrix(long ncside){
-
-		MATRIX *mat;
-		mat = (MATRIX*)calloc(ncside*ncside,sizeof(MATRIX));
-
-		Echo("Receiving matrix...");
-		MPI_Recv(&(mat[0]), ncside*ncside*3, MPI_DOUBLE, 0, TAG_MTR, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    	Echo("Matrix Received!");
-    	
-    	return mat;
-	
-}
-
 particle_t * alloc_particles(long long n_part){
 
 	particle_t * part;
@@ -287,9 +250,7 @@ particle_t * alloc_particles(long long n_part){
 		else
 			part=(particle_t*)calloc((int)(n_part/p),sizeof(particle_t));
 	}
-
 	return part;
-
 }
 
 void SendParticles(long long n_part){
@@ -320,18 +281,6 @@ particle_t * ReceiveParticle(long long n_part, long ncside){
 	return part;
 }
 
-void SendMasssum (double masssum){
-	for (int i=0;i<p;i++){
-		Echo("Sending sum of masses...");
-		MPI_Send(&masssum, 1, MPI_DOUBLE, i, TAG_MAS, MPI_COMM_WORLD);
-	}
-}
-
-double RcvMasssum(){
-	double massum=0;
-	MPI_Recv(&massum, 1, MPI_DOUBLE, MPI_ANY_SOURCE, TAG_MAS, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-	return massum;
-}
 /******************************************************************
 void main
 int arcg
