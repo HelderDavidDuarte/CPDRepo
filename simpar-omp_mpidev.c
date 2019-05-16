@@ -86,21 +86,34 @@ PURPOSE : 	Calculates first iteration of grid cell center of mass, sum
 			of mass of all particles and which cell particles are in
 RETURN :  	masssum
 ********************************************************************/
-double centerofmassinit (long ncside, long long n_part, double masssum){
+double centerofmassinit (long ncside, long long n_part, double masssum, MATRIX *mat, particle_t *part, int par_size){
 	int ix=0, jy=0;
-	for(long long k=0;k<n_part;k++){ //AS PARTICULAS PODEM SER INICIALIZADAS NOS PROCESSOS QUE AS VÃO UTILIZAR
-		par[k].ix=par[k].x*ncside;
-		par[k].jy=par[k].y*ncside;
-		ix=(int)par[k].ix;
-		jy=(int)par[k].jy;
-		mtr[ix*ncside+jy].mass+=par[k].m; //ISTO TEM QUE SER UMA REDUCTION??
-		masssum+=par[k].m;
+	for(long long k=0;k<par_size;k++){ //AS PARTICULAS PODEM SER INICIALIZADAS NOS PROCESSOS QUE AS VÃO UTILIZAR
+		ix=(int)part[k].ix;
+		jy=(int)part[k].jy;
+		mat[ix*ncside+jy].mass+=part[k].m; 
+		masssum+=part[k].m;
 	}
 
-	for(long long k=0; k<n_part; k++){
-		mtr[ix*ncside+jy].cmx+=(par[k].m*par[k].x)/mtr[ix*ncside+jy].mass; //centre of mass for x, for each grid cell
-		mtr[ix*ncside+jy].cmy+=(par[k].m*par[k].y)/mtr[ix*ncside+jy].mass; //centre of mass for y, for each grid cell
+	for(long long k=0; k<par_size; k++){
+		mat[ix*ncside+jy].cmx+=(part[k].m*part[k].x)/mat[ix*ncside+jy].mass; //centre of mass for x, for each grid cell
+		mat[ix*ncside+jy].cmy+=(part[k].m*part[k].y)/mat[ix*ncside+jy].mass; //centre of mass for y, for each grid cell
 	}
+
+	for(int k=0;k<ncside*ncside;k++){
+			MPI_Allreduce(&(mat[k].mass), &(mat[k].mass), 1, MPI_DOUBLE,
+				MPI_SUM, MPI_COMM_WORLD);
+			MPI_Allreduce(&(mat[k].cmx), &(mat[k].cmx), 1, MPI_DOUBLE,
+				MPI_SUM, MPI_COMM_WORLD);
+			MPI_Allreduce(&(mat[k].cmy), &(mat[k].cmy), 1, MPI_DOUBLE,
+				MPI_SUM, MPI_COMM_WORLD);
+	}
+
+	MPI_Allreduce(&(masssum), &(masssum), 1, MPI_DOUBLE,
+				MPI_SUM, MPI_COMM_WORLD);
+
+	printf("cinit RANK %d: %f %f %f %f\n", rank, mat[5].mass, mat[5].cmx, mat[5].cmy, masssum);
+
 	return masssum;
 }
 
@@ -137,6 +150,9 @@ void wrapcalc(long ncside, long long n_part, long particle_iter, double masssum,
 			par_size=(int)n_part/p;
 	}
 
+	masssum=centerofmassinit (ncside, n_part,masssum, mat, particle, par_size);
+
+	printf("wrapcalc RANK %d: %f %f %f %f\n", rank, mat[5].mass, mat[5].cmx, mat[5].cmy, masssum);
 	for(long l=0; l<particle_iter; l++){
 		
 		for(long i=0; i<ncside; i++){	//set mass in each cell to 0, to be calculated for this iteration
@@ -303,7 +319,7 @@ void SendParticles(long long n_part){
 	}
 }
 
-particle_t * ReceiveParticle(long long n_part){
+particle_t * ReceiveParticle(long long n_part, long ncside){
 	particle_t *part=alloc_particles(n_part);
 	int flag = 1, i=0;
 	while(1){
@@ -312,7 +328,8 @@ particle_t * ReceiveParticle(long long n_part){
 			break;
 		Echo("Receiving particle...");
 		MPI_Recv(&part[i], 7, MPI_DOUBLE, MPI_ANY_SOURCE, TAG_PAR, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-		
+		part[i].ix=part[i].x*ncside;
+		part[i].jy=part[i].y*ncside;
 		i++;
     	Echo("Particle Received!");
 	}
@@ -369,21 +386,10 @@ void main(int argc, char** argv){
 
 		if ((mtr = (MATRIX*)calloc(ncside*ncside,sizeof(MATRIX)))==NULL) exit (0);
 
-		/*for (l=0; l<ncside; l++){
-			if ((mtr[l]=(MATRIX*)calloc(ncside,sizeof(MATRIX)))==NULL) exit (0);
-		}*/
-	
-		/*for(int i=0; i<ncside;i++){
-			for(int j=0; j<ncside;j++){
-				mtr[i][j].mass=0.0;
-				mtr[i][j].cmx=0.0;
-				mtr[i][j].cmy=0.0;
-			}
-		}*/
 		init_particles(seed, ncside, n_part, par);
-		masssum=centerofmassinit(ncside, n_part, masssum);
+		//masssum=centerofmassinit(ncside, n_part, masssum);
 		SendMatrix(ncside, n_part);
-		SendMasssum(masssum);
+		//SendMasssum(masssum);
 		SendParticles(n_part);
 
 	}
@@ -391,8 +397,8 @@ void main(int argc, char** argv){
 	MPI_Barrier(MPI_COMM_WORLD);
 
 	mat=ReceiveMatrix(ncside);
-	part=ReceiveParticle(n_part);
-	masssum=RcvMasssum();
+	part=ReceiveParticle(n_part, ncside);
+	//masssum=RcvMasssum();
 
 	MPI_Barrier(MPI_COMM_WORLD);
 	wrapcalc(ncside, n_part, particle_iter, masssum, part, mat);
